@@ -1,0 +1,16 @@
+{
+  "name": "msi-server",
+  "version": "1.0.0",
+  "description": "MSI 자재 선출고 관리 - 클라우드 서버",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongodb": "^6.9.0"
+  }
+}
