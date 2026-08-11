@@ -295,6 +295,7 @@
     <div class="field"><label>비밀번호</label><input id="ps_login_password" type="password" placeholder="비밀번호" /></div>
     <div class="auth-error" id="ps_loginError"></div>
     <button class="btn primary" id="ps_loginBtn" style="width:100%; justify-content:center;">로그인</button>
+    <button class="btn ghost" id="ps_loginRefreshBtn" type="button" style="width:100%; justify-content:center; margin-top:8px;">🔄 새로고침</button>
     <div class="auth-switch">계정이 없으신가요? <a id="ps_goSignupLink">담당자 회원가입</a></div>
   </div>
 </div>
@@ -355,6 +356,7 @@
     <div class="header-actions">
       <div class="user-badge" id="ps_userBadge"></div>
       <div class="save-status"><span class="save-dot" id="ps_saveDot"></span><span id="ps_saveText">저장됨</span></div>
+      <button class="btn ghost" id="ps_refreshBtn" title="다른 사람이 입력한 최신 내용을 지금 바로 가져옵니다">🔄 새로고침</button>
       <button class="btn ghost" id="ps_exportBtn">⬇ 백업 다운로드</button>
       <button class="btn ghost" id="ps_importBtn">⬆ 백업 불러오기</button>
       <input type="file" id="ps_fileInput" accept="application/json" />
@@ -1833,6 +1835,7 @@ function deleteRow(){
 /* ---------- backup ---------- */
 
 function exportBackup(){
+  if(!currentUser || currentUser.role!=='root'){ alert('관리자만 백업 다운로드가 가능합니다.'); return; }
   const payload = { exportedAt: new Date().toISOString(), data };
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -1843,6 +1846,7 @@ function exportBackup(){
   URL.revokeObjectURL(url);
 }
 function importBackup(file){
+  if(!currentUser || currentUser.role!=='root'){ alert('관리자만 백업 불러오기가 가능합니다.'); return; }
   const reader = new FileReader();
   reader.onload = (e)=>{
     try{
@@ -1924,7 +1928,29 @@ function hideAuthPages(){
 function showSignupDonePopup(){ $('ps_signupDoneOverlay').classList.add('show'); }
 function hideSignupDonePopup(){ $('ps_signupDoneOverlay').classList.remove('show'); }
 
-function doLogin(){
+async function syncAccountsQuiet(){
+  try{
+    const res = await fetch('/api/data');
+    if(res.ok){
+      const raw = await res.json();
+      if(raw && Object.keys(raw).length){
+        data = raw;
+        if(!data.months) data.months = {};
+        if(!data.inventory) data.inventory = [];
+        if(!data.accounts) data.accounts = [];
+        if(!data.activityLog) data.activityLog = [];
+        if(!data.notifications) data.notifications = [];
+        if(!data.signupRequests) data.signupRequests = [];
+      }
+    }
+  }catch(e){ /* 무시하고 기존 데이터로 진행 */ }
+}
+
+async function doLogin(){
+  const loginBtn = $('ps_loginBtn');
+  if(loginBtn) loginBtn.disabled = true;
+  await syncAccountsQuiet();
+  if(loginBtn) loginBtn.disabled = false;
   const u = $('ps_login_username').value.trim();
   const p = $('ps_login_password').value;
   const acct = findAccount(u);
@@ -1993,6 +2019,9 @@ function applyRoleUI(){
   $('ps_logBtn').style.display = isStaffRole ? 'none' : 'inline-flex';
   $('ps_statsTab').style.display = isStaffRole ? 'none' : '';
   if(isStaffRole && currentView==='stats') currentView = 'month';
+  const isAdmin = currentUser.role==='root';
+  $('ps_exportBtn').style.display = isAdmin ? 'inline-flex' : 'none';
+  $('ps_importBtn').style.display = isAdmin ? 'inline-flex' : 'none';
 }
 
 /* ---------- 로그 페이지 (활동 로그 + 계정 관리) ---------- */
@@ -2145,6 +2174,13 @@ function renderLogPage(){
 
 $('ps_loginBtn').addEventListener('click', doLogin);
 $('ps_login_password').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doLogin(); });
+$('ps_loginRefreshBtn').addEventListener('click', async ()=>{
+  const btn = $('ps_loginRefreshBtn');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '새로고침 중...';
+  await syncAccountsQuiet();
+  btn.textContent = '✅ 새로고침 완료';
+  setTimeout(()=>{ btn.textContent = orig; btn.disabled = false; }, 1500);
+});
 $('ps_goSignupLink').addEventListener('click', ()=>{ $('ps_signupError').textContent=''; showAuthPage('ps_signupPage'); });
 $('ps_goLoginLink').addEventListener('click', ()=>{ $('ps_loginError').textContent=''; showAuthPage('ps_loginPage'); });
 $('ps_signupDoneOkBtn').addEventListener('click', ()=>{ hideSignupDonePopup(); showAuthPage('ps_loginPage'); });
@@ -2153,6 +2189,54 @@ $('ps_signupBtn').addEventListener('click', doSignup);
 $('ps_pwChangeBtn').addEventListener('click', changePasswordNow);
 $('ps_pwSkipBtn').addEventListener('click', enterApp);
 $('ps_logoutBtn').addEventListener('click', doLogout);
+
+/* ---------- 서버에서 최신 데이터 다시 가져오기 (새로고침) ---------- */
+let _refreshing = false;
+async function refreshFromServer(showFeedback){
+  if(_refreshing) return;
+  _refreshing = true;
+  const dot = $('ps_saveDot'), txt = $('ps_saveText');
+  if(showFeedback && txt){ txt.textContent = '새로고침 중'; if(dot) dot.classList.add('saving'); }
+  try{
+    const res = await fetch('/api/data');
+    if(res.ok){
+      const raw = await res.json();
+      if(raw && Object.keys(raw).length){
+        data = raw;
+        if(!data.months) data.months = {};
+        if(!data.inventory) data.inventory = [];
+        if(!data.accounts) data.accounts = [];
+        if(!data.activityLog) data.activityLog = [];
+        if(!data.notifications) data.notifications = [];
+        if(!data.signupRequests) data.signupRequests = [];
+        if(currentUser){
+          updateInboxBadge();
+          render();
+        }
+      }
+    }
+    if(showFeedback && txt){ txt.textContent = '저장됨'; if(dot) dot.classList.remove('saving'); }
+  }catch(e){
+    if(showFeedback && txt){ txt.textContent = '새로고침 실패'; if(dot) dot.classList.remove('saving'); }
+  }finally{
+    _refreshing = false;
+  }
+}
+const refreshBtnEl = $('ps_refreshBtn');
+if(refreshBtnEl) refreshBtnEl.addEventListener('click', ()=> refreshFromServer(true));
+
+// 로그인된 상태에서 20초마다 자동으로 조용히 최신 데이터 확인
+setInterval(()=>{
+  if(currentUser && document.visibilityState === 'visible'){
+    refreshFromServer(false);
+  }
+}, 20000);
+// 탭을 다시 보게 됐을 때도 한 번 갱신
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && currentUser){
+    refreshFromServer(false);
+  }
+});
 
 /* ---------- 시작 ---------- */
 (async function start(){
