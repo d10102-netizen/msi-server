@@ -508,7 +508,7 @@
     <h3 class="disp">선출고 요청 등록</h3>
     <div class="field receipt-preview">접수번호 <span class="mono" id="ps_r_receiptPreview">-</span></div>
     <div class="req-row">
-      <div class="field"><label>고객명(업체명) <span class="req">*</span></label><input id="ps_r_customerName" placeholder="예: (주)에어플로우" /></div>
+      <div class="field"><label>업체명 <span class="req">*</span></label><input id="ps_r_customerName" placeholder="예: (주)에어플로우" /></div>
       <div class="field"><label>전화번호 <span class="req">*</span></label><input id="ps_r_phone" placeholder="예: 010-1234-5678" /></div>
       <div class="field"><label>주소 <span class="req">*</span></label><input id="ps_r_address" placeholder="예: 서울시 ..." /></div>
       <div class="field"><label>제품명 <span class="req">*</span></label><input id="ps_r_material" placeholder="예: SSD 512GB" /></div>
@@ -536,6 +536,7 @@
           <option value="퀵출고">퀵출고</option>
         </select>
       </div>
+      <div class="field"><label>고객명 <span class="req">*</span></label><input id="ps_r_clientName" placeholder="예: 김민준" /></div>
     </div>
     <div class="modal-actions">
       <button class="btn ghost" id="ps_requestCancelBtn">취소</button>
@@ -552,7 +553,7 @@
     <div class="section-div">요청 정보</div>
     <div class="field receipt-preview">접수번호 <span class="mono" id="ps_f_receiptView">-</span></div>
     <div class="req-row-edit">
-      <div class="field"><label>고객명(업체명)</label><input id="ps_f_customerName" /></div>
+      <div class="field"><label>업체명</label><input id="ps_f_customerName" /></div>
       <div class="field"><label>전화번호</label><input id="ps_f_phone" /></div>
       <div class="field"><label>주소</label><input id="ps_f_address" /></div>
       <div class="field"><label>제품명 <span class="req">*</span></label><input id="ps_f_material" placeholder="예: SSD 512GB" /></div>
@@ -604,8 +605,8 @@
       <div class="field"><label>회수 송장번호</label><input id="ps_f_returnInvoice" /></div>
     </div>
 
-    <div class="section-div">비고</div>
-    <div class="field"><label>내용</label><input id="ps_f_note" placeholder="예: OOO고객 선출고" /></div>
+    <div class="section-div">고객명</div>
+    <div class="field"><label>고객명 <span id="ps_f_clientNameHint" style="font-weight:400; color:var(--text-faint); font-size:12px;"></span></label><input id="ps_f_clientName" placeholder="예: 김민준" /></div>
 
     <div class="modal-actions-split">
       <button class="btn ghost" id="ps_deleteBtn" style="display:none; color:var(--bad); border-color:var(--line);">삭제</button>
@@ -907,7 +908,7 @@ function renderRailAndStats(){
 /* ---------- month view: table ---------- */
 function matchesSearch(row){
   if(!searchTerm) return true;
-  const hay = [row.receiptNumber,row.customerName,row.phone,row.address,row.material,row.shipMaterial,row.model,row.serial910,row.customerSerial,row.symptom,row.shipInvoice,row.returnInvoice,row.note].join(' ').toLowerCase();
+  const hay = [row.receiptNumber,row.customerName,row.clientName,row.phone,row.address,row.material,row.shipMaterial,row.model,row.serial910,row.customerSerial,row.symptom,row.shipInvoice,row.returnInvoice].join(' ').toLowerCase();
   return hay.includes(searchTerm.toLowerCase());
 }
 
@@ -921,7 +922,7 @@ function renderTable(){
   const extractors = {
     receiptNumber:r=>r.receiptNumber, customerName:r=>r.customerName, phone:r=>r.phone, address:r=>r.address,
     shipMaterial:r=>r.shipMaterial || r.material, shipDate:r=>r.shipDate, shipInvoice:r=>r.shipInvoice,
-    returnDate:r=>r.returnDate, note:r=>r.note, status:r=>computeStatus(r).label
+    returnDate:r=>r.returnDate, clientName:r=>r.clientName, status:r=>computeStatus(r).label
   };
   rows = applySort(rows, monthSort, extractors);
 
@@ -953,14 +954,14 @@ function renderTable(){
     '</tr>'+
     '<tr>'+
       sortHeaderCell('접수번호','receiptNumber',monthSort,'grp-end')+
-      sortHeaderCell('고객명(업체명)','customerName',monthSort)+
+      sortHeaderCell('업체명','customerName',monthSort)+
       sortHeaderCell('전화번호','phone',monthSort)+
       sortHeaderCell('주소','address',monthSort,'grp-end')+
       sortHeaderCell('출고 자재명','shipMaterial',monthSort)+
       sortHeaderCell('출고일','shipDate',monthSort)+
       sortHeaderCell('출고 방법(출고송장번호)','shipInvoice',monthSort,'grp-end')+
       sortHeaderCell('회수일','returnDate',monthSort,'grp-end track-anchor')+
-      sortHeaderCell('비고','note',monthSort)+
+      sortHeaderCell('고객명','clientName',monthSort)+
       sortHeaderCell('상태','status',monthSort,'status-col')+
     '</tr></thead><tbody>';
 
@@ -973,7 +974,7 @@ function renderTable(){
       '<td class="mono">'+esc(row.shipDate)+'</td>'+
       buildShipMethodCell(row)+
       '<td class="mono grp-end">'+esc(row.returnDate)+'</td>'+
-      '<td class="cell-note">'+esc(row.note)+'</td>'+
+      '<td class="cell-note">'+esc(row.clientName)+'</td>'+
       '<td class="status-col"><span class="status-badge '+st.cls+'">'+st.label+'</span></td>'+
     '</tr>';
   });
@@ -1220,7 +1221,7 @@ function renderCategoryRail(){
 
 function matchesOverviewSearch(row){
   if(!overviewSearchTerm) return true;
-  const hay = [row.receiptNumber,row.customerName,row.phone,row.address,row.material,row.shipMaterial,row.model,row.serial910,row.customerSerial,row.symptom,row.shipInvoice,row.returnInvoice,row.note].join(' ').toLowerCase();
+  const hay = [row.receiptNumber,row.customerName,row.clientName,row.phone,row.address,row.material,row.shipMaterial,row.model,row.serial910,row.customerSerial,row.symptom,row.shipInvoice,row.returnInvoice].join(' ').toLowerCase();
   return hay.includes(overviewSearchTerm.toLowerCase());
 }
 
@@ -1233,7 +1234,7 @@ function renderOverviewTable(){
   const extractors = {
     receiptNumber:r=>r.receiptNumber, customerName:r=>r.customerName, phone:r=>r.phone, address:r=>r.address,
     shipMaterial:r=>r.shipMaterial || r.material, shipDate:r=>r.shipDate, shipInvoice:r=>r.shipInvoice,
-    returnDate:r=>r.returnDate, note:r=>r.note, status:r=>computeStatus(r).label
+    returnDate:r=>r.returnDate, clientName:r=>r.clientName, status:r=>computeStatus(r).label
   };
   rows = applySort(rows, overviewSort, extractors);
 
@@ -1265,14 +1266,14 @@ function renderOverviewTable(){
     '</tr>'+
     '<tr>'+
       sortHeaderCell('접수번호','receiptNumber',overviewSort,'grp-end')+
-      sortHeaderCell('고객명(업체명)','customerName',overviewSort)+
+      sortHeaderCell('업체명','customerName',overviewSort)+
       sortHeaderCell('전화번호','phone',overviewSort)+
       sortHeaderCell('주소','address',overviewSort,'grp-end')+
       sortHeaderCell('출고 자재명','shipMaterial',overviewSort)+
       sortHeaderCell('출고일','shipDate',overviewSort)+
       sortHeaderCell('출고 방법(출고송장번호)','shipInvoice',overviewSort,'grp-end')+
       sortHeaderCell('회수일','returnDate',overviewSort,'grp-end track-anchor')+
-      sortHeaderCell('비고','note',overviewSort)+
+      sortHeaderCell('고객명','clientName',overviewSort)+
       sortHeaderCell('상태','status',overviewSort,'status-col')+
     '</tr></thead><tbody>';
 
@@ -1285,7 +1286,7 @@ function renderOverviewTable(){
       '<td class="mono">'+esc(row.shipDate)+'</td>'+
       buildShipMethodCell(row)+
       '<td class="mono grp-end">'+esc(row.returnDate)+'</td>'+
-      '<td class="cell-note">'+esc(row.note)+'</td>'+
+      '<td class="cell-note">'+esc(row.clientName)+'</td>'+
       '<td class="status-col"><span class="status-badge '+st.cls+'">'+st.label+'</span></td>'+
     '</tr>';
   });
@@ -1494,7 +1495,7 @@ function exportStatsExcel(){
   const wsRaw = XLSX.utils.json_to_sheet(raw.map(r=>({
     월: r.__month,
     접수번호: r.receiptNumber || '',
-    고객명: r.customerName || '',
+    업체명: r.customerName || '',
     출고방법: r.shipMethod || '',
     전화번호: r.phone || '',
     주소: r.address || '',
@@ -1509,7 +1510,7 @@ function exportStatsExcel(){
     출고송장번호: r.shipInvoice || '',
     회수일: r.returnDate || '',
     회수송장번호: r.returnInvoice || '',
-    비고: r.note || '',
+    고객명: r.clientName || '',
     상태: computeStatus(r).label
   })));
   XLSX.utils.book_append_sheet(wb, wsRaw, '전체데이터');
@@ -1544,7 +1545,7 @@ function render(){
 /* ---------- 선출고 modal ---------- */
 /* ---------- 권한 ---------- */
 const STAFF_EDITABLE_FIELDS = ['ps_f_customerName','ps_f_phone','ps_f_address','ps_f_material','ps_f_category','ps_f_symptom','ps_f_requestDate','ps_f_shipMethod'];
-const ALL_EDIT_FIELDS = ['ps_f_material','ps_f_category','ps_f_requestDate','ps_f_customerName','ps_f_phone','ps_f_address','ps_f_shipMethod','ps_f_shipMaterial','ps_f_model','ps_f_model2','ps_f_serial910','ps_f_returnMaterial','ps_f_customerSerial','ps_f_symptom','ps_f_shipDate','ps_f_shipInvoice','ps_f_returnDate','ps_f_returnInvoice','ps_f_note'];
+const ALL_EDIT_FIELDS = ['ps_f_material','ps_f_category','ps_f_requestDate','ps_f_customerName','ps_f_phone','ps_f_address','ps_f_shipMethod','ps_f_shipMaterial','ps_f_model','ps_f_model2','ps_f_serial910','ps_f_returnMaterial','ps_f_customerSerial','ps_f_symptom','ps_f_shipDate','ps_f_shipInvoice','ps_f_returnDate','ps_f_returnInvoice'];
 
 function canManageAccounts(){ return currentUser && currentUser.role==='root'; }
 function getEditPermission(row){
@@ -1678,12 +1679,16 @@ function openModal(id, monthKey){
   $('ps_f_shipInvoice').value = row?.shipInvoice || '';
   $('ps_f_returnDate').value = row?.returnDate || '';
   $('ps_f_returnInvoice').value = row?.returnInvoice || '';
-  $('ps_f_note').value = row?.note || '';
+  $('ps_f_clientName').value = row?.clientName || '';
 
   currentEditPerm = getEditPermission(row);
   refreshEditModalFieldStates();
   refreshShipConfirmUI();
   $('ps_deleteBtn').style.display = (row && currentEditPerm==='full') ? 'inline-flex' : 'none';
+
+  const isCreator = !!(row && currentUser && row.createdBy===currentUser.username);
+  $('ps_f_clientName').disabled = !isCreator;
+  $('ps_f_clientNameHint').textContent = isCreator ? '(접수자만 수정 가능)' : '(접수자만 수정 가능 · 보기 전용)';
 
   $('ps_overlay').classList.add('show');
   setTimeout(()=>$('ps_f_material').focus(), 50);
@@ -1699,6 +1704,7 @@ function openRequestModal(){
   $('ps_r_phone').disabled = false;
   $('ps_r_address').disabled = false;
   $('ps_r_shipMethod').value = '';
+  $('ps_r_clientName').value = '';
   $('ps_r_material').value = '';
   $('ps_r_category').value = '';
   $('ps_r_requestDate').value = todayStr();
@@ -1711,6 +1717,7 @@ function closeRequestModal(){ $('ps_requestOverlay').classList.remove('show'); }
 function saveRequestRow(){
   const shipMethod = $('ps_r_shipMethod').value;
   const customerName = $('ps_r_customerName').value.trim();
+  const clientName = $('ps_r_clientName').value.trim();
   const phone = $('ps_r_phone').value.trim();
   const address = $('ps_r_address').value.trim();
   const material = $('ps_r_material').value.trim();
@@ -1718,21 +1725,22 @@ function saveRequestRow(){
   const requestDate = $('ps_r_requestDate').value;
   const symptom = $('ps_r_symptom').value.trim();
 
-  if(!customerName){ alert('고객명(업체명)을 입력해주세요'); $('ps_r_customerName').focus(); return; }
+  if(!customerName){ alert('업체명을 입력해주세요'); $('ps_r_customerName').focus(); return; }
   if(!phone){ alert('전화번호를 입력해주세요'); $('ps_r_phone').focus(); return; }
   if(!address){ alert('주소를 입력해주세요'); $('ps_r_address').focus(); return; }
   if(!material){ alert('제품명을 입력해주세요'); $('ps_r_material').focus(); return; }
   if(!category){ alert('카테고리를 선택해주세요'); $('ps_r_category').focus(); return; }
   if(!requestDate){ alert('출고 요청일을 입력해주세요'); $('ps_r_requestDate').focus(); return; }
   if(!shipMethod){ alert('출고 방법을 선택해주세요'); $('ps_r_shipMethod').focus(); return; }
+  if(!clientName){ alert('고객명을 입력해주세요'); $('ps_r_clientName').focus(); return; }
 
   const newRow = {
     id: uid(), receiptNumber: generateReceiptNumber(), createdBy: currentUser.username,
     shipMethod,
-    customerName, phone, address,
+    customerName, clientName, phone, address,
     material, category, requestDate, symptom,
     model:'', serial910:'', customerSerial:'',
-    shipDate:'', shipInvoice:'', returnDate:'', returnInvoice:'', note:''
+    shipDate:'', shipInvoice:'', returnDate:'', returnInvoice:''
   };
   if(!data.months[currentMonth]) data.months[currentMonth] = [];
   data.months[currentMonth].push(newRow);
@@ -1757,8 +1765,6 @@ function saveRow(){
   const shipMethod = $('ps_f_shipMethod').value;
   if(!shipMethod){ alert('출고 방법을 선택해주세요'); $('ps_f_shipMethod').focus(); return; }
 
-  const noteValue = $('ps_f_note').value.trim();
-
   const rowData = {
     material,
     category: $('ps_f_category').value,
@@ -1777,7 +1783,7 @@ function saveRow(){
     shipInvoice: $('ps_f_shipInvoice').value.trim(),
     returnDate: $('ps_f_returnDate').value,
     returnInvoice: $('ps_f_returnInvoice').value.trim(),
-    note: noteValue,
+    clientName: $('ps_f_clientName').value.trim(),
   };
 
   // 출고일이 있으면 그 날짜의 월(YYYY-MM)로 자동 저장. 출고일이 없으면(자재 대기중) 기존 위치 유지.
