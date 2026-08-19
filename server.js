@@ -2,18 +2,18 @@ const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 const { MongoClient } = require('mongodb');
-
+ 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12시간
-
+ 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-
+ 
 let col; // mongodb collection handle
 const sessions = new Map(); // token -> { username, role, expires }
-
+ 
 /* ---------- 비밀번호 해싱 ---------- */
 function hashPassword(plain) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -35,7 +35,7 @@ function verifyPassword(plain, stored) {
 function makeToken() {
   return crypto.randomBytes(24).toString('hex');
 }
-
+ 
 /* ---------- 세션 인증 미들웨어 ---------- */
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
@@ -49,7 +49,7 @@ function requireAuth(req, res, next) {
   req.user = { username: sess.username, role: sess.role };
   next();
 }
-
+ 
 /* ---------- DB 연결 ---------- */
 async function initDb() {
   if (!MONGODB_URI) {
@@ -63,7 +63,7 @@ async function initDb() {
   console.log('MongoDB 연결 성공');
   await ensureBootstrapAccount();
 }
-
+ 
 // 최초 실행 시 관리자 계정이 없으면 하나 만들어 둠 (비밀번호는 해시로 저장)
 async function ensureBootstrapAccount() {
   const doc = await col.findOne({ _id: 'main' });
@@ -80,7 +80,7 @@ async function ensureBootstrapAccount() {
     console.log('기본 관리자 계정을 생성했습니다 (최초 로그인 시 비밀번호 변경 필요)');
   }
 }
-
+ 
 /* ---------- 로그인 (인증 불필요, 자격 확인용) ---------- */
 app.post('/api/login', async (req, res) => {
   try {
@@ -88,9 +88,29 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: '아이디/비밀번호를 입력하세요' });
     const doc = await col.findOne({ _id: 'main' });
-    const accounts = (doc && doc.data && doc.data.accounts) || [];
+    const d = (doc && doc.data) || {};
+    const accounts = d.accounts || [];
     const acct = accounts.find(a => a.username === username);
-    if (!acct || !verifyPassword(password, acct.password)) {
+    if (!acct) {
+      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' });
+    }
+ 
+    const isLegacyPlaintext = typeof acct.password === 'string' && !acct.password.includes(':');
+    let passwordOk = false;
+ 
+    if (isLegacyPlaintext) {
+      // 보안 강화 이전에 평문으로 저장된 예전 계정 - 일치하면 이번 기회에 해시로 자동 전환
+      passwordOk = acct.password === password;
+      if (passwordOk) {
+        acct.password = hashPassword(password);
+        acct.mustChangePassword = true;
+        await col.updateOne({ _id: 'main' }, { $set: { data: d, updatedAt: new Date() } }, { upsert: true });
+      }
+    } else {
+      passwordOk = verifyPassword(password, acct.password);
+    }
+ 
+    if (!passwordOk) {
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' });
     }
     const token = makeToken();
@@ -101,7 +121,7 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
+ 
 /* ---------- 회원가입 신청 (인증 불필요) ---------- */
 app.post('/api/signup', async (req, res) => {
   try {
@@ -137,7 +157,7 @@ app.post('/api/signup', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
+ 
 /* ---------- 로그아웃 ---------- */
 app.post('/api/logout', requireAuth, (req, res) => {
   const authHeader = req.headers['authorization'] || '';
@@ -145,7 +165,7 @@ app.post('/api/logout', requireAuth, (req, res) => {
   if (token) sessions.delete(token);
   res.json({ ok: true });
 });
-
+ 
 /* ---------- 비밀번호 해시 발급 (로그인 상태에서만) ---------- */
 // 계정 생성/초기화/비밀번호 변경 시, 평문 비밀번호를 서버에서 해시로 바꿔서 돌려줌.
 // 클라이언트는 이 해시값만 저장하므로 평문 비밀번호가 데이터에 남지 않음.
@@ -154,7 +174,7 @@ app.post('/api/hash-password', requireAuth, (req, res) => {
   if (!password) return res.status(400).json({ error: 'password required' });
   res.json({ hash: hashPassword(password) });
 });
-
+ 
 /* ---------- 데이터 조회/저장 (로그인 필요) ---------- */
 app.get('/api/data', requireAuth, async (req, res) => {
   try {
@@ -166,7 +186,7 @@ app.get('/api/data', requireAuth, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
+ 
 app.post('/api/data', requireAuth, async (req, res) => {
   try {
     if (!col) return res.status(500).json({ ok: false, error: 'DB 연결 안 됨' });
@@ -181,9 +201,9 @@ app.post('/api/data', requireAuth, async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-
+ 
 app.get('/healthz', (req, res) => res.send('ok'));
-
+ 
 initDb().then(() => {
   app.listen(PORT, () => {
     console.log(`서버가 켜졌습니다: http://localhost:${PORT}`);
@@ -194,3 +214,4 @@ initDb().then(() => {
     console.log(`서버가 켜졌습니다 (DB 없이): http://localhost:${PORT}`);
   });
 });
+ 
