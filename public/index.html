@@ -295,7 +295,6 @@
     <div class="field"><label>비밀번호</label><input id="ps_login_password" type="password" placeholder="비밀번호" /></div>
     <div class="auth-error" id="ps_loginError"></div>
     <button class="btn primary" id="ps_loginBtn" style="width:100%; justify-content:center;">로그인</button>
-    <button class="btn ghost" id="ps_loginRefreshBtn" type="button" style="width:100%; justify-content:center; margin-top:8px;">🔄 새로고침</button>
     <div class="auth-switch">계정이 없으신가요? <a id="ps_goSignupLink">담당자 회원가입</a></div>
   </div>
 </div>
@@ -765,29 +764,54 @@ function bindSortableHeaders(wrap, sortState, onChange){
   });
 }
 
-/* ---------- storage (server) ---------- */
-async function loadData(){
-  try{
-    const res = await fetch('/api/data');
-    if(res.ok){
-      const raw = await res.json();
-      if(raw && Object.keys(raw).length) data = raw;
-    }
-  }catch(e){ /* 서버 연결 실패 시 기본값 사용 */ }
+/* ---------- storage (server, 인증 필요) ---------- */
+const TOKEN_KEY = 'preship-token-v1';
+let authToken = null;
+try{ authToken = localStorage.getItem(TOKEN_KEY); }catch(e){ authToken = null; }
+
+function saveToken(token){ authToken = token; try{ localStorage.setItem(TOKEN_KEY, token); }catch(e){} }
+function clearToken(){ authToken = null; try{ localStorage.removeItem(TOKEN_KEY); }catch(e){} }
+
+// 인증 헤더를 자동으로 붙여주는 fetch. 세션이 끊긴 경우(401) 로그인 화면으로 돌려보냄.
+async function authFetch(url, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers, authToken ? { 'Authorization': 'Bearer '+authToken } : {});
+  const res = await fetch(url, opts);
+  if(res.status === 401){
+    clearToken();
+    clearSession();
+    currentUser = null;
+    hideAuthPages();
+    $('ps_app').style.display = 'none';
+    showAuthPage('ps_loginPage');
+    $('ps_loginError').textContent = '세션이 만료되어 다시 로그인해주세요';
+  }
+  return res;
+}
+
+function normalizeData(raw){
+  data = raw && Object.keys(raw).length ? raw : data;
   if(!data.months) data.months = {};
   if(!data.inventory) data.inventory = [];
   if(!data.accounts) data.accounts = [];
   if(!data.activityLog) data.activityLog = [];
   if(!data.notifications) data.notifications = [];
   if(!data.signupRequests) data.signupRequests = [];
-  if(!data.accounts.find(a=>a.role==='root')){
-    data.accounts.push({ username:'김민준', password:'1234', role:'root' });
-  }
   const keys = Object.keys(data.months);
   if(keys.length===0) data.months[defaultMonthKey()] = [];
   currentMonth = keys.sort().pop() || defaultMonthKey();
   migrateReceiptNumbers();
-  await saveData();
+}
+
+// 로그인 성공 직후 실제 업무 데이터를 불러옴
+async function loadDataAfterLogin(){
+  try{
+    const res = await authFetch('/api/data');
+    if(res.ok){
+      const raw = await res.json();
+      normalizeData(raw);
+    }
+  }catch(e){ normalizeData({}); }
 }
 
 let _saveTimer = null;
@@ -801,7 +825,7 @@ async function saveData(){
   return new Promise((resolve)=>{
     _saveTimer = setTimeout(async ()=>{
       try{
-        const res = await fetch('/api/data', {
+        const res = await authFetch('/api/data', {
           method:'POST',
           headers:{ 'Content-Type':'application/json' },
           body: JSON.stringify(data)
@@ -1934,79 +1958,103 @@ function hideAuthPages(){
 function showSignupDonePopup(){ $('ps_signupDoneOverlay').classList.add('show'); }
 function hideSignupDonePopup(){ $('ps_signupDoneOverlay').classList.remove('show'); }
 
-async function syncAccountsQuiet(){
-  try{
-    const res = await fetch('/api/data');
-    if(res.ok){
-      const raw = await res.json();
-      if(raw && Object.keys(raw).length){
-        data = raw;
-        if(!data.months) data.months = {};
-        if(!data.inventory) data.inventory = [];
-        if(!data.accounts) data.accounts = [];
-        if(!data.activityLog) data.activityLog = [];
-        if(!data.notifications) data.notifications = [];
-        if(!data.signupRequests) data.signupRequests = [];
-      }
-    }
-  }catch(e){ /* 무시하고 기존 데이터로 진행 */ }
-}
-
 async function doLogin(){
   const loginBtn = $('ps_loginBtn');
-  if(loginBtn) loginBtn.disabled = true;
-  await syncAccountsQuiet();
-  if(loginBtn) loginBtn.disabled = false;
   const u = $('ps_login_username').value.trim();
   const p = $('ps_login_password').value;
-  const acct = findAccount(u);
-  if(!acct || acct.password !== p){
-    $('ps_loginError').textContent = '아이디 또는 비밀번호가 올바르지 않아요';
-    return;
+  if(!u || !p){ $('ps_loginError').textContent = '아이디와 비밀번호를 입력해주세요'; return; }
+  if(loginBtn) loginBtn.disabled = true;
+  try{
+    const res = await fetch('/api/login', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ username:u, password:p })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      $('ps_loginError').textContent = j.error || '아이디 또는 비밀번호가 올바르지 않아요';
+      if(loginBtn) loginBtn.disabled = false;
+      return;
+    }
+    $('ps_loginError').textContent = '';
+    saveToken(j.token);
+    currentUser = { username: u, role: j.role };
+    saveSession(u);
+    await loadDataAfterLogin();
+    if(j.mustChangePassword){
+      $('ps_pw_new').value=''; $('ps_pw_new2').value=''; $('ps_pwError').textContent='';
+      showAuthPage('ps_pwPromptPage');
+    }else{
+      enterApp();
+    }
+  }catch(e){
+    $('ps_loginError').textContent = '서버에 연결할 수 없어요';
   }
-  $('ps_loginError').textContent = '';
-  currentUser = { username: acct.username, role: acct.role };
-  saveSession(acct.username);
-  if(p === '1234'){
-    $('ps_pw_new').value=''; $('ps_pw_new2').value=''; $('ps_pwError').textContent='';
-    showAuthPage('ps_pwPromptPage');
-  }else{
-    enterApp();
-  }
+  if(loginBtn) loginBtn.disabled = false;
 }
 
-function doSignup(){
+async function doSignup(){
   const u = $('ps_signup_username').value.trim();
   const p1 = $('ps_signup_password').value;
   const p2 = $('ps_signup_password2').value;
   if(!u){ $('ps_signupError').textContent='아이디(이름)를 입력해주세요'; return; }
-  if(findAccount(u)){ $('ps_signupError').textContent='이미 사용중인 아이디예요'; return; }
-  if(data.signupRequests.find(r=>r.username===u)){ $('ps_signupError').textContent='이미 승인 대기중인 아이디예요'; return; }
   if(!p1 || p1.length<2){ $('ps_signupError').textContent='비밀번호를 입력해주세요'; return; }
   if(p1!==p2){ $('ps_signupError').textContent='비밀번호가 서로 달라요'; return; }
   $('ps_signupError').textContent = '';
-  data.signupRequests.push({ username:u, password:p1, requestedAt: Date.now() });
-  data.activityLog.unshift({ ts:new Date().toISOString(), username:u, action:'가입 신청', detail:'(담당자)' });
-  if(data.activityLog.length>500) data.activityLog = data.activityLog.slice(0,500);
-  data.accounts.filter(a=>a.role==='root' || a.role==='mid').forEach(a=> sendNotification(a.username, u+'님이 가입 신청을 하였습니다'));
-  saveData();
-  $('ps_signup_username').value=''; $('ps_signup_password').value=''; $('ps_signup_password2').value='';
-  showSignupDonePopup();
+  const signupBtn = $('ps_signupBtn');
+  if(signupBtn) signupBtn.disabled = true;
+  try{
+    const res = await fetch('/api/signup', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ username:u, password:p1 })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      $('ps_signupError').textContent = j.error || '가입 신청에 실패했어요';
+      if(signupBtn) signupBtn.disabled = false;
+      return;
+    }
+    $('ps_signup_username').value=''; $('ps_signup_password').value=''; $('ps_signup_password2').value='';
+    showSignupDonePopup();
+  }catch(e){
+    $('ps_signupError').textContent = '서버에 연결할 수 없어요';
+  }
+  if(signupBtn) signupBtn.disabled = false;
 }
 
-function doLogout(){
+async function doLogout(){
+  try{ await authFetch('/api/logout', { method:'POST' }); }catch(e){}
+  clearToken();
   clearSession();
   location.reload();
 }
 
-function changePasswordNow(){
+// 평문 비밀번호를 서버에서 해시로 바꿔 받아옴 (평문은 저장되지 않음)
+async function requestPasswordHash(plain){
+  const res = await authFetch('/api/hash-password', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ password: plain })
+  });
+  if(!res.ok) throw new Error('해시 발급 실패');
+  const j = await res.json();
+  return j.hash;
+}
+
+async function changePasswordNow(){
   const p1 = $('ps_pw_new').value;
   const p2 = $('ps_pw_new2').value;
   if(!p1 || p1.length<2){ $('ps_pwError').textContent='새 비밀번호를 입력해주세요'; return; }
   if(p1!==p2){ $('ps_pwError').textContent='비밀번호가 서로 달라요'; return; }
-  const acct = findAccount(currentUser.username);
-  if(acct){ acct.password = p1; saveData(); }
-  enterApp();
+  try{
+    const hash = await requestPasswordHash(p1);
+    const acct = findAccount(currentUser.username);
+    if(acct){ acct.password = hash; acct.mustChangePassword = false; saveData(); }
+    enterApp();
+  }catch(e){
+    $('ps_pwError').textContent = '비밀번호 변경에 실패했어요, 다시 시도해주세요';
+  }
 }
 
 function enterApp(){
@@ -2127,7 +2175,7 @@ function renderLogPage(){
       const req = data.signupRequests.find(r=>r.username===u);
       if(!req) return;
       if(findAccount(u)){ alert('이미 사용중인 아이디예요. 신청자와 다시 확인해주세요.'); return; }
-      data.accounts.push({ username:req.username, password:req.password, role:'staff' });
+      data.accounts.push({ username:req.username, password:req.password, role:'staff', mustChangePassword:false });
       data.signupRequests = data.signupRequests.filter(r=>r.username!==u);
       logActivity('가입 승인', u+' (담당자)');
       sendNotification(u, '가입이 승인되었어요. 지금 로그인할 수 있어요.');
@@ -2146,24 +2194,38 @@ function renderLogPage(){
     });
   });
 
-  $('ps_createMidBtn').addEventListener('click', ()=>{
+  $('ps_createMidBtn').addEventListener('click', async ()=>{
     const u = $('ps_newMidUsername').value.trim();
     if(!u){ alert('아이디를 입력해주세요'); return; }
     if(findAccount(u)){ alert('이미 사용중인 아이디예요'); return; }
-    data.accounts.push({ username:u, password:'1234', role:'mid' });
-    logActivity('계정 생성', u+' (부관리자)');
-    saveData();
-    renderLogPage();
-  });
-  acctPanel.querySelectorAll('.btn-detail[data-username]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const u = btn.dataset.username;
-      if(!confirm(u+' 계정의 비밀번호를 1234로 초기화할까요?')) return;
-      const acct = findAccount(u);
-      if(acct){ acct.password = '1234'; }
-      logActivity('비밀번호 초기화', u);
+    const btn = $('ps_createMidBtn'); btn.disabled = true;
+    try{
+      const hash = await requestPasswordHash('1234');
+      data.accounts.push({ username:u, password:hash, role:'mid', mustChangePassword:true });
+      logActivity('계정 생성', u+' (부관리자)');
       saveData();
       renderLogPage();
+    }catch(e){
+      alert('계정 생성에 실패했어요, 다시 시도해주세요');
+    }
+    btn.disabled = false;
+  });
+  acctPanel.querySelectorAll('.btn-detail[data-username]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const u = btn.dataset.username;
+      if(!confirm(u+' 계정의 비밀번호를 1234로 초기화할까요?')) return;
+      btn.disabled = true;
+      try{
+        const hash = await requestPasswordHash('1234');
+        const acct = findAccount(u);
+        if(acct){ acct.password = hash; acct.mustChangePassword = true; }
+        logActivity('비밀번호 초기화', u);
+        saveData();
+        renderLogPage();
+      }catch(e){
+        alert('초기화에 실패했어요, 다시 시도해주세요');
+        btn.disabled = false;
+      }
     });
   });
   acctPanel.querySelectorAll('.btn-detail[data-delete-username]').forEach(btn=>{
@@ -2180,13 +2242,6 @@ function renderLogPage(){
 
 $('ps_loginBtn').addEventListener('click', doLogin);
 $('ps_login_password').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doLogin(); });
-$('ps_loginRefreshBtn').addEventListener('click', async ()=>{
-  const btn = $('ps_loginRefreshBtn');
-  btn.disabled = true; const orig = btn.textContent; btn.textContent = '새로고침 중...';
-  await syncAccountsQuiet();
-  btn.textContent = '✅ 새로고침 완료';
-  setTimeout(()=>{ btn.textContent = orig; btn.disabled = false; }, 1500);
-});
 $('ps_goSignupLink').addEventListener('click', ()=>{ $('ps_signupError').textContent=''; showAuthPage('ps_signupPage'); });
 $('ps_goLoginLink').addEventListener('click', ()=>{ $('ps_loginError').textContent=''; showAuthPage('ps_loginPage'); });
 $('ps_signupDoneOkBtn').addEventListener('click', ()=>{ hideSignupDonePopup(); showAuthPage('ps_loginPage'); });
@@ -2204,21 +2259,13 @@ async function refreshFromServer(showFeedback){
   const dot = $('ps_saveDot'), txt = $('ps_saveText');
   if(showFeedback && txt){ txt.textContent = '새로고침 중'; if(dot) dot.classList.add('saving'); }
   try{
-    const res = await fetch('/api/data');
+    const res = await authFetch('/api/data');
     if(res.ok){
       const raw = await res.json();
-      if(raw && Object.keys(raw).length){
-        data = raw;
-        if(!data.months) data.months = {};
-        if(!data.inventory) data.inventory = [];
-        if(!data.accounts) data.accounts = [];
-        if(!data.activityLog) data.activityLog = [];
-        if(!data.notifications) data.notifications = [];
-        if(!data.signupRequests) data.signupRequests = [];
-        if(currentUser){
-          updateInboxBadge();
-          render();
-        }
+      normalizeData(raw);
+      if(currentUser){
+        updateInboxBadge();
+        render();
       }
     }
     if(showFeedback && txt){ txt.textContent = '저장됨'; if(dot) dot.classList.remove('saving'); }
@@ -2246,15 +2293,23 @@ document.addEventListener('visibilitychange', ()=>{
 
 /* ---------- 시작 ---------- */
 (async function start(){
-  await loadData();
   const sessionUser = loadSession();
-  const sessionAcct = sessionUser ? findAccount(sessionUser) : null;
-  if(sessionAcct){
-    currentUser = { username: sessionAcct.username, role: sessionAcct.role };
-    enterApp();
-  }else{
-    showAuthPage('ps_loginPage');
+  if(authToken && sessionUser){
+    try{
+      const res = await authFetch('/api/data');
+      if(res.ok){
+        const raw = await res.json();
+        normalizeData(raw);
+        const acct = findAccount(sessionUser);
+        currentUser = { username: sessionUser, role: acct ? acct.role : 'staff' };
+        enterApp();
+        return;
+      }
+    }catch(e){ /* 아래에서 로그인 화면으로 */ }
   }
+  clearToken();
+  clearSession();
+  showAuthPage('ps_loginPage');
 })();
 </script>
 </body>
