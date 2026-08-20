@@ -177,6 +177,7 @@
   .user-badge .role-tag{ font-size:10px; font-weight:700; padding:2px 7px; border-radius:99px; }
   .role-tag.role-root{ background:rgba(217,59,62,0.14); color:var(--bad); }
   .role-tag.role-mid{ background:rgba(224,168,40,0.16); color:#95720C; }
+  .role-tag.role-operator{ background:rgba(139,95,191,0.16); color:var(--violet); }
   .role-tag.role-staff{ background:rgba(62,110,150,0.14); color:var(--steel); }
 
   .log-split{ display:flex; gap:20px; height:100%; }
@@ -685,7 +686,7 @@ let invSort = { key:null, dir:'asc' };
 let currentUser = null; // { username, role }
 
 const SESSION_KEY = 'preship-session-v1';
-const ROLE_LABEL = { root:'관리자', mid:'부관리자', staff:'담당자' };
+const ROLE_LABEL = { root:'관리자', mid:'부관리자', operator:'운영자', staff:'담당자' };
 
 const $ = (id) => document.getElementById(id);
 
@@ -1069,7 +1070,7 @@ function renderInvCategoryRail(){
 
 function renderInventory(){
   const wrap = $('ps_inventoryList');
-  const canManageInv = currentUser.role==='root';
+  const canManageInv = currentUser.role==='root' || currentUser.role==='mid';
   $('ps_invAddBtn').style.display = canManageInv ? 'inline-flex' : 'none';
 
   let availableTotal = 0;
@@ -1182,7 +1183,7 @@ function closeTrackModal(){
 }
 
 function saveInv(){
-  if(currentUser.role!=='root'){ alert('자재 등록/수정은 관리자만 할 수 있어요.'); return; }
+  if(!(currentUser.role==='root' || currentUser.role==='mid')){ alert('자재 등록/수정은 관리자만 할 수 있어요.'); return; }
   const category = $('ps_inv_category').value;
   const material = $('ps_inv_material').value.trim();
   const qty = parseInt($('ps_inv_qty').value, 10);
@@ -1206,7 +1207,7 @@ function saveInv(){
 }
 
 function deleteInv(){
-  if(currentUser.role!=='root'){ alert('자재 삭제는 관리자만 할 수 있어요.'); return; }
+  if(!(currentUser.role==='root' || currentUser.role==='mid')){ alert('자재 삭제는 관리자만 할 수 있어요.'); return; }
   if(!editingInvId) return;
   if(!confirm('이 재고 자재를 삭제할까요?')) return;
   data.inventory = data.inventory.filter(i=>i.id!==editingInvId);
@@ -1575,10 +1576,10 @@ function render(){
 const STAFF_EDITABLE_FIELDS = ['ps_f_customerName','ps_f_phone','ps_f_address','ps_f_material','ps_f_category','ps_f_symptom','ps_f_requestDate','ps_f_shipMethod'];
 const ALL_EDIT_FIELDS = ['ps_f_material','ps_f_category','ps_f_requestDate','ps_f_customerName','ps_f_phone','ps_f_address','ps_f_shipMethod','ps_f_shipMaterial','ps_f_model','ps_f_model2','ps_f_serial910','ps_f_returnMaterial','ps_f_customerSerial','ps_f_symptom','ps_f_shipDate','ps_f_shipInvoice','ps_f_returnDate','ps_f_returnInvoice'];
 
-function canManageAccounts(){ return currentUser && currentUser.role==='root'; }
+function canManageAccounts(){ return currentUser && (currentUser.role==='root' || currentUser.role==='mid'); }
 function getEditPermission(row){
   if(!currentUser) return 'none';
-  if(currentUser.role==='root' || currentUser.role==='mid') return 'full';
+  if(currentUser.role==='root' || currentUser.role==='mid' || currentUser.role==='operator') return 'full';
   if(row && row.createdBy===currentUser.username) return 'limited';
   return 'none';
 }
@@ -1652,7 +1653,7 @@ function refreshShipConfirmUI(){
   }
   wrap.style.display = 'block';
   const confirmed = !!(currentEditingRow && currentEditingRow.shipConfirmed);
-  const canConfirm = currentUser.role==='root' || currentUser.role==='mid';
+  const canConfirm = currentUser.role==='root' || currentUser.role==='mid' || currentUser.role==='operator';
   if(confirmed){
     wrap.innerHTML = '<span class="status-badge status-good">✓ 출고 완료 확인됨</span>';
   }else{
@@ -1664,7 +1665,7 @@ function refreshShipConfirmUI(){
 }
 function confirmShipCompletion(){
   if(!editingId) return;
-  if(!(currentUser.role==='root' || currentUser.role==='mid')) return;
+  if(!(currentUser.role==='root' || currentUser.role==='mid' || currentUser.role==='operator')) return;
   const targetMonth = editingMonth || currentMonth;
   const row = (data.months[targetMonth]||[]).find(r=>r.id===editingId);
   if(!row) return;
@@ -1869,7 +1870,7 @@ function deleteRow(){
 /* ---------- backup ---------- */
 
 function exportBackup(){
-  if(!currentUser || currentUser.role!=='root'){ alert('관리자만 백업 다운로드가 가능합니다.'); return; }
+  if(!currentUser || !(currentUser.role==='root' || currentUser.role==='mid')){ alert('백업 다운로드는 관리자/부관리자만 가능합니다.'); return; }
   const payload = { exportedAt: new Date().toISOString(), data };
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -1880,7 +1881,7 @@ function exportBackup(){
   URL.revokeObjectURL(url);
 }
 function importBackup(file){
-  if(!currentUser || currentUser.role!=='root'){ alert('관리자만 백업 불러오기가 가능합니다.'); return; }
+  if(!currentUser || !(currentUser.role==='root' || currentUser.role==='mid')){ alert('백업 불러오기는 관리자/부관리자만 가능합니다.'); return; }
   const reader = new FileReader();
   reader.onload = (e)=>{
     try{
@@ -2073,13 +2074,13 @@ function enterApp(){
 
 function applyRoleUI(){
   const badge = $('ps_userBadge');
-  const roleClass = currentUser.role==='root' ? 'role-root' : currentUser.role==='mid' ? 'role-mid' : 'role-staff';
+  const roleClass = currentUser.role==='root' ? 'role-root' : currentUser.role==='mid' ? 'role-mid' : currentUser.role==='operator' ? 'role-operator' : 'role-staff';
   badge.innerHTML = '<b>'+esc(currentUser.username)+'</b> <span class="role-tag '+roleClass+'">'+ROLE_LABEL[currentUser.role]+'</span>';
   const isStaffRole = currentUser.role==='staff';
   $('ps_logBtn').style.display = isStaffRole ? 'none' : 'inline-flex';
   $('ps_statsTab').style.display = isStaffRole ? 'none' : '';
   if(isStaffRole && currentView==='stats') currentView = 'month';
-  const isAdmin = currentUser.role==='root';
+  const isAdmin = currentUser.role==='root' || currentUser.role==='mid';
   $('ps_exportBtn').style.display = isAdmin ? 'inline-flex' : 'none';
   $('ps_importBtn').style.display = isAdmin ? 'inline-flex' : 'none';
 }
@@ -2124,8 +2125,12 @@ function renderLogPage(){
 
   html += '<div style="display:flex; gap:12px;">'+
     '<div class="acct-panel" style="flex:1;">'+
-      '<div class="acct-panel-title">부관리자 계정 생성</div>'+
+      '<div class="acct-panel-title">계정 생성</div>'+
       '<div class="field"><input id="ps_newMidUsername" placeholder="아이디 입력 (비밀번호는 자동 1234)" /></div>'+
+      '<div class="field"><select id="ps_newMidRole">'+
+        '<option value="mid">부관리자</option>'+
+        '<option value="operator">운영자</option>'+
+      '</select></div>'+
       '<button class="btn primary" id="ps_createMidBtn" style="width:100%; justify-content:center;">생성</button>'+
     '</div>'+
     '<div class="acct-panel" style="flex:1;">'+
@@ -2138,10 +2143,10 @@ function renderLogPage(){
 
   html += '<div class="acct-panel"><div class="acct-panel-title">전체 계정 (비밀번호 초기화 → 1234)</div>';
   data.accounts.slice().sort((a,b)=>{
-    const order = { root:0, mid:1, staff:2 };
+    const order = { root:0, mid:1, operator:2, staff:3 };
     return order[a.role]-order[b.role] || a.username.localeCompare(b.username,'ko');
   }).forEach(a=>{
-    const roleClass = a.role==='root' ? 'role-root' : a.role==='mid' ? 'role-mid' : 'role-staff';
+    const roleClass = a.role==='root' ? 'role-root' : a.role==='mid' ? 'role-mid' : a.role==='operator' ? 'role-operator' : 'role-staff';
     html += '<div class="acct-row"><span class="acct-name">'+esc(a.username)+' <span class="role-tag '+roleClass+'">'+ROLE_LABEL[a.role]+'</span></span>'+
       (a.role==='root' ? '' :
         '<span style="display:flex; gap:6px;">'+
@@ -2202,13 +2207,14 @@ function renderLogPage(){
 
   $('ps_createMidBtn').addEventListener('click', async ()=>{
     const u = $('ps_newMidUsername').value.trim();
+    const role = $('ps_newMidRole').value;
     if(!u){ alert('아이디를 입력해주세요'); return; }
     if(findAccount(u)){ alert('이미 사용중인 아이디예요'); return; }
     const btn = $('ps_createMidBtn'); btn.disabled = true;
     try{
       const hash = await requestPasswordHash('1234');
-      data.accounts.push({ username:u, password:hash, role:'mid', mustChangePassword:true });
-      logActivity('계정 생성', u+' (부관리자)');
+      data.accounts.push({ username:u, password:hash, role, mustChangePassword:true });
+      logActivity('계정 생성', u+' ('+ROLE_LABEL[role]+')');
       saveData();
       renderLogPage();
     }catch(e){
