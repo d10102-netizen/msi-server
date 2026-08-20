@@ -106,16 +106,24 @@ async function getLockState(username) {
   return doc || { username, failCount: 0, lockedUntil: 0 };
 }
 async function recordLoginFailure(username) {
-  if (!secCol) return;
+  if (!secCol) return { failCount: 0, lockedUntil: 0 };
   const state = await getLockState(username);
   const failCount = (state.failCount || 0) + 1;
   const update = { username, failCount, lastAttempt: new Date() };
   update.lockedUntil = failCount >= MAX_LOGIN_FAILS ? (Date.now() + LOCKOUT_MS) : (state.lockedUntil || 0);
   await secCol.updateOne({ username }, { $set: update }, { upsert: true });
+  return update;
 }
 async function resetLoginFailures(username) {
   if (!secCol) return;
   await secCol.updateOne({ username }, { $set: { failCount: 0, lockedUntil: 0 } }, { upsert: true });
+}
+function loginFailMessage(state) {
+  if (state.failCount >= MAX_LOGIN_FAILS) {
+    return '비밀번호를 ' + MAX_LOGIN_FAILS + '회 잘못 입력하여 24시간 동안 로그인이 제한됩니다.';
+  }
+  const remaining = MAX_LOGIN_FAILS - state.failCount;
+  return '아이디 또는 비밀번호가 올바르지 않습니다. (' + remaining + '회 더 틀리면 24시간 동안 잠깁니다)';
 }
 
 /* ---------- 로그인 기록을 활동 로그에 남김 ---------- */
@@ -174,9 +182,9 @@ app.post('/api/login', async (req, res) => {
     const accounts = d.accounts || [];
     const acct = accounts.find(a => a.username === username);
     if (!acct) {
-      await recordLoginFailure(username);
+      const st = await recordLoginFailure(username);
       await logLoginEvent(username, false, ip);
-      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' });
+      return res.status(401).json({ error: loginFailMessage(st) });
     }
 
     const isLegacyPlaintext = typeof acct.password === 'string' && !acct.password.includes(':');
@@ -195,9 +203,9 @@ app.post('/api/login', async (req, res) => {
     }
 
     if (!passwordOk) {
-      await recordLoginFailure(username);
+      const st = await recordLoginFailure(username);
       await logLoginEvent(username, false, ip);
-      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' });
+      return res.status(401).json({ error: loginFailMessage(st) });
     }
 
     await resetLoginFailures(username);
@@ -263,6 +271,17 @@ app.post('/api/hash-password', requireAuth, (req, res) => {
   const { password } = req.body || {};
   if (!password) return res.status(400).json({ error: 'password required' });
   res.json({ hash: hashPassword(password) });
+});
+
+/* ---------- 로그인 잠금 해제 (관리자 전용) ---------- */
+app.post('/api/unlock-login', requireAuth, async (req, res) => {
+  if (req.user.role !== 'root' && req.user.role !== 'mid') {
+    return res.status(403).json({ error: '권한이 없습니다' });
+  }
+  const { username } = req.body || {};
+  if (!username) return res.status(400).json({ error: 'username required' });
+  await resetLoginFailures(username);
+  res.json({ ok: true });
 });
 
 /* ---------- 데이터 조회/저장 (로그인 필요) ---------- */
