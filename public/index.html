@@ -322,6 +322,21 @@
     <button class="btn primary" id="ps_signupDoneOkBtn" style="width:100%; justify-content:center;">확인</button>
   </div>
 </div>
+
+<!-- 비밀번호 직접 변경 (담당자 본인) -->
+<div class="overlay" id="ps_changePwOverlay">
+  <div class="modal" style="width:360px;">
+    <h3 class="disp">비밀번호 변경</h3>
+    <div class="field"><label>현재 비밀번호</label><input id="ps_cpw_current" type="password" placeholder="현재 비밀번호" /></div>
+    <div class="field"><label>새 비밀번호</label><input id="ps_cpw_new" type="password" placeholder="새 비밀번호" /></div>
+    <div class="field"><label>새 비밀번호 확인</label><input id="ps_cpw_new2" type="password" placeholder="새 비밀번호 확인" /></div>
+    <div class="auth-error" id="ps_cpwError"></div>
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button class="btn ghost" id="ps_cpwCancelBtn" style="flex:1; justify-content:center;">취소</button>
+      <button class="btn primary" id="ps_cpwConfirmBtn" style="flex:1; justify-content:center;">확인</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- 초기 비밀번호(1234) 로그인 시 변경 안내 -->
@@ -360,6 +375,7 @@
       <button class="btn ghost" id="ps_exportBtn">⬇ 백업 다운로드</button>
       <button class="btn ghost" id="ps_importBtn">⬆ 백업 불러오기</button>
       <input type="file" id="ps_fileInput" accept="application/json" />
+      <button class="btn ghost" id="ps_changePwBtn">🔑 비밀번호 변경</button>
       <button class="btn ghost" id="ps_logoutBtn">로그아웃</button>
       <button class="btn home" id="ps_logBtn">🗂 로그</button>
     </div>
@@ -508,9 +524,10 @@
     <h3 class="disp">선출고 요청 등록</h3>
     <div class="field receipt-preview">접수번호 <span class="mono" id="ps_r_receiptPreview">-</span></div>
     <div class="req-row">
-      <div class="field"><label>업체명 <span class="req">*</span></label><input id="ps_r_customerName" placeholder="예: (주)에어플로우" /></div>
-      <div class="field"><label>전화번호 <span class="req">*</span></label><input id="ps_r_phone" placeholder="예: 010-1234-5678" /></div>
-      <div class="field"><label>주소 <span class="req">*</span></label><input id="ps_r_address" placeholder="예: 서울시 ..." /></div>
+      <div class="field"><label>업체명 (배송 정보) <span class="req">*</span></label><input id="ps_r_customerName" placeholder="예: (주)에어플로우" /></div>
+      <div class="field"><label>고객명 (실 고객명) <span class="req">*</span></label><input id="ps_r_clientName" placeholder="예: 김민준" /></div>
+      <div class="field"><label>전화번호 (배송 정보) <span class="req">*</span></label><input id="ps_r_phone" placeholder="예: 010-1234-5678" /></div>
+      <div class="field"><label>주소 (배송 정보) <span class="req">*</span></label><input id="ps_r_address" placeholder="예: 서울시 ..." /></div>
       <div class="field"><label>제품명 <span class="req">*</span></label><input id="ps_r_material" placeholder="예: SSD 512GB" /></div>
       <div class="field"><label>카테고리 <span class="req">*</span></label>
         <select id="ps_r_category">
@@ -536,7 +553,6 @@
           <option value="퀵출고">퀵출고</option>
         </select>
       </div>
-      <div class="field"><label>고객명 <span class="req">*</span></label><input id="ps_r_clientName" placeholder="예: 김민준" /></div>
     </div>
     <div class="modal-actions">
       <button class="btn ghost" id="ps_requestCancelBtn">취소</button>
@@ -553,9 +569,9 @@
     <div class="section-div">요청 정보</div>
     <div class="field receipt-preview">접수번호 <span class="mono" id="ps_f_receiptView">-</span></div>
     <div class="req-row-edit">
-      <div class="field"><label>업체명</label><input id="ps_f_customerName" /></div>
-      <div class="field"><label>전화번호</label><input id="ps_f_phone" /></div>
-      <div class="field"><label>주소</label><input id="ps_f_address" /></div>
+      <div class="field"><label>업체명 (배송 정보)</label><input id="ps_f_customerName" /></div>
+      <div class="field"><label>전화번호 (배송 정보)</label><input id="ps_f_phone" /></div>
+      <div class="field"><label>주소 (배송 정보)</label><input id="ps_f_address" /></div>
       <div class="field"><label>제품명 <span class="req">*</span></label><input id="ps_f_material" placeholder="예: SSD 512GB" /></div>
       <div class="field"><label>불량증상</label><input id="ps_f_symptom" placeholder="예: 부팅 불가, 인식 오류" /></div>
     </div>
@@ -606,7 +622,7 @@
     </div>
 
     <div class="section-div">고객명</div>
-    <div class="field"><label>고객명 <span id="ps_f_clientNameHint" style="font-weight:400; color:var(--text-faint); font-size:12px;"></span></label><input id="ps_f_clientName" placeholder="예: 김민준" /></div>
+    <div class="field"><label>고객명 (실 고객명) <span id="ps_f_clientNameHint" style="font-weight:400; color:var(--text-faint); font-size:12px;"></span></label><input id="ps_f_clientName" placeholder="예: 김민준" /></div>
 
     <div class="modal-actions-split">
       <button class="btn ghost" id="ps_deleteBtn" style="display:none; color:var(--bad); border-color:var(--line);">삭제</button>
@@ -882,15 +898,18 @@ function renderTabbar(){
     tab.addEventListener('click', ()=>{ currentView='month'; currentMonth=key; activeStatus='ALL'; searchTerm=''; $('ps_searchInput').value=''; render(); });
     bar.appendChild(tab);
   });
-  const addTab = document.createElement('button');
-  addTab.className = 'tab-add';
-  addTab.textContent = '+';
-  addTab.title = '월 추가';
-  addTab.addEventListener('click', addMonth);
-  bar.appendChild(addTab);
+  if(currentUser.role!=='staff'){
+    const addTab = document.createElement('button');
+    addTab.className = 'tab-add';
+    addTab.textContent = '+';
+    addTab.title = '월 추가';
+    addTab.addEventListener('click', addMonth);
+    bar.appendChild(addTab);
+  }
 }
 
 function addMonth(){
+  if(currentUser.role==='staff'){ alert('월 추가는 관리자/부관리자/운영자만 가능해요.'); return; }
   const input = prompt('추가할 월을 YYYY-MM 형식으로 입력하세요 (예: 2026-08)', defaultMonthKey());
   if(!input) return;
   const m = input.trim().match(/^(\d{4})-(\d{1,2})$/);
@@ -1049,9 +1068,13 @@ function normalizeInvCategory(item){
 
 function renderInvCategoryRail(){
   const items = data.inventory;
-  const counts = { ALL: items.length };
+  const counts = { ALL: 0 };
   CATEGORIES.concat(['미분류']).forEach(c=>{ counts[c] = 0; });
-  items.forEach(i=>{ counts[normalizeInvCategory(i)]++; });
+  items.forEach(i=>{
+    const available = Math.max((i.qty||0) - (i.inUse||0), 0);
+    counts.ALL += available;
+    counts[normalizeInvCategory(i)] += available;
+  });
 
   const container = $('ps_invCategorySlots');
   container.innerHTML = '';
@@ -2269,6 +2292,53 @@ $('ps_signupBtn').addEventListener('click', doSignup);
 $('ps_pwChangeBtn').addEventListener('click', changePasswordNow);
 $('ps_pwSkipBtn').addEventListener('click', enterApp);
 $('ps_logoutBtn').addEventListener('click', doLogout);
+
+/* ---------- 비밀번호 직접 변경 (담당자 본인) ---------- */
+function openChangePwModal(){
+  $('ps_cpw_current').value = '';
+  $('ps_cpw_new').value = '';
+  $('ps_cpw_new2').value = '';
+  $('ps_cpwError').textContent = '';
+  $('ps_changePwOverlay').classList.add('show');
+  setTimeout(()=>$('ps_cpw_current').focus(), 50);
+}
+function closeChangePwModal(){
+  $('ps_changePwOverlay').classList.remove('show');
+}
+async function submitChangePw(){
+  const cur = $('ps_cpw_current').value;
+  const p1 = $('ps_cpw_new').value;
+  const p2 = $('ps_cpw_new2').value;
+  if(!cur){ $('ps_cpwError').textContent = '현재 비밀번호를 입력해주세요'; return; }
+  if(!p1 || p1.length<2){ $('ps_cpwError').textContent = '새 비밀번호를 입력해주세요'; return; }
+  if(p1!==p2){ $('ps_cpwError').textContent = '새 비밀번호가 서로 달라요'; return; }
+  if(!confirm('정말로 비밀번호를 변경하시겠습니까?')) return;
+
+  const btn = $('ps_cpwConfirmBtn');
+  btn.disabled = true;
+  try{
+    const res = await authFetch('/api/change-password', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ currentPassword: cur, newPassword: p1 })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      $('ps_cpwError').textContent = j.error || '비밀번호 변경에 실패했어요';
+      btn.disabled = false;
+      return;
+    }
+    closeChangePwModal();
+    alert('비밀번호가 변경되었어요.');
+  }catch(e){
+    $('ps_cpwError').textContent = '서버에 연결할 수 없어요';
+  }
+  btn.disabled = false;
+}
+$('ps_changePwBtn').addEventListener('click', openChangePwModal);
+$('ps_cpwCancelBtn').addEventListener('click', closeChangePwModal);
+$('ps_cpwConfirmBtn').addEventListener('click', submitChangePw);
+$('ps_changePwOverlay').addEventListener('click', (e)=>{ if(e.target.id==='ps_changePwOverlay') closeChangePwModal(); });
 
 /* ---------- 서버에서 최신 데이터 다시 가져오기 (새로고침) ---------- */
 let _refreshing = false;
