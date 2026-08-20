@@ -2,18 +2,53 @@ const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 const { MongoClient } = require('mongodb');
- 
+const geoip = require('geoip-lite');
+
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12시간
- 
+const MAX_LOGIN_FAILS = 5;
+const LOCKOUT_MS = 24 * 60 * 60 * 1000; // 24시간
+
 const app = express();
+app.set('trust proxy', true); // Render 등 프록시 뒤에서도 실제 접속 IP를 인식하기 위함
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
- 
-let col; // mongodb collection handle
+
+function getClientIp(req) {
+  let ip = req.ip || '';
+  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+  return ip;
+}
+function isPrivateOrLocalIp(ip) {
+  return !ip || ip === '127.0.0.1' || ip === '::1' ||
+    ip.startsWith('10.') || ip.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip);
+}
+function describeLocation(ip) {
+  if (isPrivateOrLocalIp(ip)) return '로컬/내부망';
+  const geo = geoip.lookup(ip);
+  if (!geo) return '위치 확인 불가';
+  const parts = [geo.country];
+  if (geo.city) parts.push(geo.city);
+  return parts.filter(Boolean).join(' ');
+}
+
+/* ---------- 해외 접속 차단 (한국 IP만 허용) ---------- */
+app.use((req, res, next) => {
+  const ip = getClientIp(req);
+  if (isPrivateOrLocalIp(ip)) return next();
+  const geo = geoip.lookup(ip);
+  if (geo && geo.country && geo.country !== 'KR') {
+    return res.status(403).send('이 사이트는 한국 내에서만 접속할 수 있습니다.');
+  }
+  next();
+});
+
+let col; // mongodb collection handle (앱 데이터)
+let secCol; // mongodb collection handle (로그인 보안 상태)
 const sessions = new Map(); // token -> { username, role, expires }
- 
+
 /* ---------- 비밀번호 해싱 ---------- */
 function hashPassword(plain) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -35,7 +70,7 @@ function verifyPassword(plain, stored) {
 function makeToken() {
   return crypto.randomBytes(24).toString('hex');
 }
- 
+
 /* ---------- 세션 인증 미들웨어 ---------- */
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
@@ -49,7 +84,7 @@ function requireAuth(req, res, next) {
   req.user = { username: sess.username, role: sess.role };
   next();
 }
- 
+
 /* ---------- DB 연결 ---------- */
 async function initDb() {
   if (!MONGODB_URI) {
@@ -60,10 +95,49 @@ async function initDb() {
   await client.connect();
   const db = client.db('msi');
   col = db.collection('appdata');
+  secCol = db.collection('loginSecurity');
   console.log('MongoDB 연결 성공');
   await ensureBootstrapAccount();
 }
- 
+
+/* ---------- 로그인 실패 잠금 처리 ---------- */
+async function getLockState(username) {
+  const doc = secCol ? await secCol.findOne({ username }) : null;
+  return doc || { username, failCount: 0, lockedUntil: 0 };
+}
+async function recordLoginFailure(username) {
+  if (!secCol) return;
+  const state = await getLockState(username);
+  const failCount = (state.failCount || 0) + 1;
+  const update = { username, failCount, lastAttempt: new Date() };
+  update.lockedUntil = failCount >= MAX_LOGIN_FAILS ? (Date.now() + LOCKOUT_MS) : (state.lockedUntil || 0);
+  await secCol.updateOne({ username }, { $set: update }, { upsert: true });
+}
+async function resetLoginFailures(username) {
+  if (!secCol) return;
+  await secCol.updateOne({ username }, { $set: { failCount: 0, lockedUntil: 0 } }, { upsert: true });
+}
+
+/* ---------- 로그인 기록을 활동 로그에 남김 ---------- */
+async function logLoginEvent(username, success, ip) {
+  if (!col) return;
+  const entry = {
+    ts: new Date().toISOString(),
+    username: username || '(알 수 없음)',
+    action: success ? '로그인 성공' : '로그인 실패',
+    detail: describeLocation(ip) + ' · ' + (ip || '알 수 없음')
+  };
+  try {
+    await col.updateOne(
+      { _id: 'main' },
+      { $push: { 'data.activityLog': { $each: [entry], $position: 0, $slice: 500 } }, $set: { updatedAt: new Date() } },
+      { upsert: true }
+    );
+  } catch (e) {
+    console.error('로그인 기록 실패:', e.message);
+  }
+}
+
 // 최초 실행 시 관리자 계정이 없으면 하나 만들어 둠 (비밀번호는 해시로 저장)
 async function ensureBootstrapAccount() {
   const doc = await col.findOne({ _id: 'main' });
@@ -80,24 +154,34 @@ async function ensureBootstrapAccount() {
     console.log('기본 관리자 계정을 생성했습니다 (최초 로그인 시 비밀번호 변경 필요)');
   }
 }
- 
+
 /* ---------- 로그인 (인증 불필요, 자격 확인용) ---------- */
 app.post('/api/login', async (req, res) => {
   try {
     if (!col) return res.status(500).json({ error: 'DB 연결 안 됨' });
     const { username, password } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: '아이디/비밀번호를 입력하세요' });
+    const ip = getClientIp(req);
+
+    const lockState = await getLockState(username);
+    if (lockState.lockedUntil && lockState.lockedUntil > Date.now()) {
+      const remainMin = Math.ceil((lockState.lockedUntil - Date.now()) / 60000);
+      return res.status(423).json({ error: '로그인 5회 실패로 잠겼습니다. 약 ' + remainMin + '분 후 다시 시도해주세요.' });
+    }
+
     const doc = await col.findOne({ _id: 'main' });
     const d = (doc && doc.data) || {};
     const accounts = d.accounts || [];
     const acct = accounts.find(a => a.username === username);
     if (!acct) {
+      await recordLoginFailure(username);
+      await logLoginEvent(username, false, ip);
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' });
     }
- 
+
     const isLegacyPlaintext = typeof acct.password === 'string' && !acct.password.includes(':');
     let passwordOk = false;
- 
+
     if (isLegacyPlaintext) {
       // 보안 강화 이전에 평문으로 저장된 예전 계정 - 일치하면 이번 기회에 해시로 자동 전환
       passwordOk = acct.password === password;
@@ -109,10 +193,16 @@ app.post('/api/login', async (req, res) => {
     } else {
       passwordOk = verifyPassword(password, acct.password);
     }
- 
+
     if (!passwordOk) {
+      await recordLoginFailure(username);
+      await logLoginEvent(username, false, ip);
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' });
     }
+
+    await resetLoginFailures(username);
+    await logLoginEvent(username, true, ip);
+
     const token = makeToken();
     sessions.set(token, { username: acct.username, role: acct.role, expires: Date.now() + SESSION_TTL_MS });
     res.json({ ok: true, token, role: acct.role, mustChangePassword: !!acct.mustChangePassword });
@@ -121,7 +211,7 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 /* ---------- 회원가입 신청 (인증 불필요) ---------- */
 app.post('/api/signup', async (req, res) => {
   try {
@@ -157,7 +247,7 @@ app.post('/api/signup', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 /* ---------- 로그아웃 ---------- */
 app.post('/api/logout', requireAuth, (req, res) => {
   const authHeader = req.headers['authorization'] || '';
@@ -165,7 +255,7 @@ app.post('/api/logout', requireAuth, (req, res) => {
   if (token) sessions.delete(token);
   res.json({ ok: true });
 });
- 
+
 /* ---------- 비밀번호 해시 발급 (로그인 상태에서만) ---------- */
 // 계정 생성/초기화/비밀번호 변경 시, 평문 비밀번호를 서버에서 해시로 바꿔서 돌려줌.
 // 클라이언트는 이 해시값만 저장하므로 평문 비밀번호가 데이터에 남지 않음.
@@ -174,7 +264,7 @@ app.post('/api/hash-password', requireAuth, (req, res) => {
   if (!password) return res.status(400).json({ error: 'password required' });
   res.json({ hash: hashPassword(password) });
 });
- 
+
 /* ---------- 데이터 조회/저장 (로그인 필요) ---------- */
 app.get('/api/data', requireAuth, async (req, res) => {
   try {
@@ -186,7 +276,7 @@ app.get('/api/data', requireAuth, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 app.post('/api/data', requireAuth, async (req, res) => {
   try {
     if (!col) return res.status(500).json({ ok: false, error: 'DB 연결 안 됨' });
@@ -201,9 +291,9 @@ app.post('/api/data', requireAuth, async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
- 
+
 app.get('/healthz', (req, res) => res.send('ok'));
- 
+
 initDb().then(() => {
   app.listen(PORT, () => {
     console.log(`서버가 켜졌습니다: http://localhost:${PORT}`);
@@ -214,4 +304,3 @@ initDb().then(() => {
     console.log(`서버가 켜졌습니다 (DB 없이): http://localhost:${PORT}`);
   });
 });
- 
