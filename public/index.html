@@ -799,7 +799,11 @@ function normalizeData(raw){
   if(!data.signupRequests) data.signupRequests = [];
   const keys = Object.keys(data.months);
   if(keys.length===0) data.months[defaultMonthKey()] = [];
-  currentMonth = keys.sort().pop() || defaultMonthKey();
+  const freshKeys = Object.keys(data.months);
+  // 이미 특정 달을 보고 있던 중이면 그 달을 유지하고, 그 달이 사라진 경우에만 최신 달로 이동
+  if(!currentMonth || !freshKeys.includes(currentMonth)){
+    currentMonth = freshKeys.sort().pop() || defaultMonthKey();
+  }
   migrateReceiptNumbers();
 }
 
