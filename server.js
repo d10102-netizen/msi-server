@@ -284,6 +284,32 @@ app.post('/api/unlock-login', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+/* ---------- 비밀번호 변경 (본인, 현재 비밀번호 확인 필요) ---------- */
+app.post('/api/change-password', requireAuth, async (req, res) => {
+  try {
+    if (!col) return res.status(500).json({ error: 'DB 연결 안 됨' });
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: '비밀번호를 입력하세요' });
+
+    const doc = await col.findOne({ _id: 'main' });
+    const d = (doc && doc.data) || {};
+    const acct = (d.accounts || []).find(a => a.username === req.user.username);
+    if (!acct) return res.status(404).json({ error: '계정을 찾을 수 없습니다' });
+
+    const isLegacyPlaintext = typeof acct.password === 'string' && !acct.password.includes(':');
+    const ok = isLegacyPlaintext ? acct.password === currentPassword : verifyPassword(currentPassword, acct.password);
+    if (!ok) return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다' });
+
+    acct.password = hashPassword(newPassword);
+    acct.mustChangePassword = false;
+    await col.updateOne({ _id: 'main' }, { $set: { data: d, updatedAt: new Date() } }, { upsert: true });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('비밀번호 변경 실패:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* ---------- 데이터 조회/저장 (로그인 필요) ---------- */
 app.get('/api/data', requireAuth, async (req, res) => {
   try {
