@@ -1972,7 +1972,9 @@ async function doLogin(){
     });
     const j = await res.json().catch(()=>({}));
     if(!res.ok || !j.ok){
-      $('ps_loginError').textContent = j.error || '아이디 또는 비밀번호가 올바르지 않아요';
+      const msg = j.error || '아이디 또는 비밀번호가 올바르지 않아요';
+      $('ps_loginError').textContent = msg;
+      alert(msg);
       if(loginBtn) loginBtn.disabled = false;
       return;
     }
@@ -2213,7 +2215,7 @@ function renderLogPage(){
   acctPanel.querySelectorAll('.btn-detail[data-username]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const u = btn.dataset.username;
-      if(!confirm(u+' 계정의 비밀번호를 1234로 초기화할까요?')) return;
+      if(!confirm(u+' 계정의 비밀번호를 1234로 초기화할까요? (로그인 잠김 상태였다면 함께 풀립니다)')) return;
       btn.disabled = true;
       try{
         const hash = await requestPasswordHash('1234');
@@ -2221,6 +2223,13 @@ function renderLogPage(){
         if(acct){ acct.password = hash; acct.mustChangePassword = true; }
         logActivity('비밀번호 초기화', u);
         saveData();
+        try{
+          await authFetch('/api/unlock-login', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ username: u })
+          });
+        }catch(e){ /* 잠금 해제 실패해도 비밀번호 초기화는 이미 반영됨 */ }
         renderLogPage();
       }catch(e){
         alert('초기화에 실패했어요, 다시 시도해주세요');
