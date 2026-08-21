@@ -179,6 +179,8 @@
   .role-tag.role-mid{ background:rgba(224,168,40,0.16); color:#95720C; }
   .role-tag.role-operator{ background:rgba(139,95,191,0.16); color:var(--violet); }
   .role-tag.role-staff{ background:rgba(62,110,150,0.14); color:var(--steel); }
+  .toggle-btn{ background:#fff; }
+  .toggle-btn.active{ background:var(--copper); border-color:var(--copper); color:#fff; }
 
   .log-split{ display:flex; gap:20px; height:100%; }
   .log-col{ flex:1; min-width:0; display:flex; flex-direction:column; }
@@ -354,7 +356,7 @@
 
 <div id="ps_app" style="display:none;">
   <header>
-    <div class="brand">
+    <div class="brand" id="ps_brandHome" style="cursor:pointer;" title="MSI 선출고 재고로 이동">
       <svg class="brand-mascot" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 30 C6 22, 10 12, 18 9 C20 8, 22 9, 21 11 C26 9, 33 12, 35 19 C40 20, 42 25, 39 29 C41 31, 40 35, 36 35 L34 35 C34 38, 31 40, 28 39 C26 41, 22 41, 20 39 C15 40, 9 37, 8 30 Z" fill="var(--copper)" opacity="0.9"/>
         <circle cx="30" cy="18" r="1.6" fill="#fff"/>
@@ -411,8 +413,8 @@
   </div>
 
   <div class="tabbar">
-    <button class="tab-pinned" id="ps_inventoryTab">MIK 선출고 재고</button>
-    <button class="tab-pinned pinned-last" id="ps_overviewTab">MIK 선출고 현황</button>
+    <button class="tab-pinned" id="ps_inventoryTab">MSI 선출고 재고</button>
+    <button class="tab-pinned pinned-last" id="ps_overviewTab">MSI 선출고 현황</button>
     <button class="tab-pinned pinned-last muted" id="ps_statsTab">MIK 선출고 물동량</button>
     <div class="tabbar-scroll" id="ps_tabbar"></div>
   </div>
@@ -463,7 +465,7 @@
 
     <main id="ps_inventoryMain" style="display:none; width:100%;">
       <div class="main-head">
-        <div class="main-title disp">MIK 선출고 재고</div>
+        <div class="main-title disp">MSI 선출고 재고</div>
         <button class="btn primary" id="ps_invAddBtn">+ 자재 등록</button>
       </div>
       <div class="inv-summary">선출고 가능 자재 수량 <span class="mono" id="ps_invAvailableTotal">0개</span></div>
@@ -506,12 +508,14 @@
       <div class="main-head">
         <div class="main-title disp">
           <span id="ps_overviewCatName">전체보기</span>
+          <select id="ps_overviewStatusFilter" style="margin-left:10px; font-size:13px; font-weight:400; padding:5px 8px; border:1px solid var(--line); border-radius:var(--radius); background:#fff;"></select>
         </div>
         <div class="filters">
           <input class="search" id="ps_overviewSearchInput" placeholder="자재명 / 모델명 / 시리얼 / 송장번호 검색..." />
         </div>
       </div>
       <div id="ps_overviewTableWrap"></div>
+      <div id="ps_overviewPager" style="display:flex; align-items:center; justify-content:center; gap:14px; padding:14px 0;"></div>
     </main>
   </div>
 
@@ -614,9 +618,16 @@
 
     <div class="section-div">회수 정보</div>
     <div class="proc-row">
-      <div class="field"><label>회수 자재명</label><input id="ps_f_returnMaterial" placeholder="미입력 시 제품명과 동일" /></div>
-      <div class="field"><label>모델명</label><input id="ps_f_model2" placeholder="예: MZ-V8P512" /></div>
-      <div class="field"><label>고객 회수 시리얼</label><input id="ps_f_customerSerial" /></div>
+      <div class="field" id="ps_f_returnMaterialField"><label>회수 자재명</label><input id="ps_f_returnMaterial" placeholder="미입력 시 제품명과 동일" /></div>
+      <div class="field" id="ps_f_model2Field"><label>모델명</label><input id="ps_f_model2" placeholder="예: MZ-V8P512" /></div>
+      <div class="field" id="ps_f_customerSerialField"><label>고객 회수 시리얼</label><input id="ps_f_customerSerial" /></div>
+      <div class="field" id="ps_f_returnUsageField" style="display:none; max-width:260px;">
+        <label>사용 여부 (시리얼 확인 불가 자재)</label>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn toggle-btn" id="ps_f_returnUsedBtn" style="flex:1; justify-content:center;">사용회수</button>
+          <button type="button" class="btn toggle-btn" id="ps_f_returnUnusedBtn" style="flex:1; justify-content:center;">미사용 회수</button>
+        </div>
+      </div>
       <div class="field"><label>회수일</label><input id="ps_f_returnDate" type="date" /></div>
       <div class="field"><label>회수 송장번호</label><input id="ps_f_returnInvoice" /></div>
     </div>
@@ -698,6 +709,10 @@ let editingInvId = null;
 let statsYear = null;
 let monthSort = { key:null, dir:'asc' };
 let overviewSort = { key:null, dir:'asc' };
+let overviewStatusFilter = 'ALL';
+let overviewPage = 1;
+const OVERVIEW_PAGE_SIZE = 12;
+const OVERVIEW_STATUS_LABEL = { ALL:'전체', PENDING:'선출고대기중', SHIPPED:'선출고중', DONE_USED:'회수완료(사용)', DONE_UNUSED:'회수완료(미사용)' };
 let invSort = { key:null, dir:'asc' };
 let currentUser = null; // { username, role }
 
@@ -1266,7 +1281,7 @@ function renderCategoryRail(){
     slot.className = 'slot' + (item.key===activeCategory ? ' active' : '');
     slot.dataset.category = item.key;
     slot.innerHTML = '<span class="slot-pin"></span><span class="slot-name">'+item.name+'</span><span class="slot-code mono">'+(counts[item.key]||0)+'</span>';
-    slot.addEventListener('click', ()=>{ activeCategory = item.key; renderCategoryRail(); renderOverviewTable(); renderOverviewStats(); $('ps_overviewCatName').textContent = item.key==='ALL' ? '전체보기' : item.name; });
+    slot.addEventListener('click', ()=>{ activeCategory = item.key; overviewPage = 1; renderCategoryRail(); renderOverviewTable(); renderOverviewStats(); $('ps_overviewCatName').textContent = item.key==='ALL' ? '전체보기' : item.name; });
     container.appendChild(slot);
   });
 }
@@ -1277,11 +1292,22 @@ function matchesOverviewSearch(row){
   return hay.includes(overviewSearchTerm.toLowerCase());
 }
 
+function matchesOverviewStatus(row){
+  if(overviewStatusFilter==='ALL') return true;
+  const st = computeStatus(row);
+  if(overviewStatusFilter==='PENDING') return st.key==='PENDING';
+  if(overviewStatusFilter==='SHIPPED') return st.key==='SHIPPED';
+  if(overviewStatusFilter==='DONE_USED') return st.key==='DONE' && st.used;
+  if(overviewStatusFilter==='DONE_UNUSED') return st.key==='DONE' && !st.used;
+  return true;
+}
+
 function renderOverviewTable(){
   const wrap = $('ps_overviewTableWrap');
   let rows = overviewRows()
     .filter(r=> activeCategory==='ALL' || normalizeCategory(r)===activeCategory)
-    .filter(matchesOverviewSearch);
+    .filter(matchesOverviewSearch)
+    .filter(matchesOverviewStatus);
 
   const extractors = {
     receiptNumber:r=>r.receiptNumber, customerName:r=>r.customerName, phone:r=>r.phone, address:r=>r.address,
@@ -1292,8 +1318,14 @@ function renderOverviewTable(){
 
   if(rows.length===0){
     wrap.innerHTML = '<div class="empty"><div class="disp">해당하는 선출고 항목이 없어요</div><div>필터나 검색 조건을 바꿔보세요.</div></div>';
+    $('ps_overviewPager').innerHTML = '';
     return;
   }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / OVERVIEW_PAGE_SIZE));
+  if(overviewPage > totalPages) overviewPage = totalPages;
+  if(overviewPage < 1) overviewPage = 1;
+  const pageRows = rows.slice((overviewPage-1)*OVERVIEW_PAGE_SIZE, overviewPage*OVERVIEW_PAGE_SIZE);
 
   let html = '<table>'+
     '<colgroup>'+
@@ -1329,7 +1361,7 @@ function renderOverviewTable(){
       sortHeaderCell('상태','status',overviewSort,'status-col')+
     '</tr></thead><tbody>';
 
-  rows.forEach(row=>{
+  pageRows.forEach(row=>{
     const st = computeStatus(row);
     html += '<tr>'+
       '<td class="grp-end"><span class="receipt-link" data-id="'+row.id+'" data-month="'+row.__month+'">'+esc(row.receiptNumber||'-')+'</span></td>'+
@@ -1352,6 +1384,20 @@ function renderOverviewTable(){
     el.addEventListener('click', (e)=>{ e.stopPropagation(); openTrackModal(el.dataset.invoice, el.dataset.ship, el.dataset.return, el); });
   });
   bindSortableHeaders(wrap, overviewSort, renderOverviewTable);
+  renderOverviewPager(totalPages);
+}
+
+function renderOverviewPager(totalPages){
+  const pager = $('ps_overviewPager');
+  if(!pager) return;
+  if(totalPages<=1){ pager.innerHTML=''; return; }
+  pager.innerHTML =
+    '<button class="btn ghost" id="ps_overviewPrevBtn" '+(overviewPage<=1?'disabled':'')+'>‹ 이전</button>'+
+    '<span class="mono">'+overviewPage+' / '+totalPages+'</span>'+
+    '<button class="btn ghost" id="ps_overviewNextBtn" '+(overviewPage>=totalPages?'disabled':'')+'>다음 ›</button>';
+  const prevBtn = $('ps_overviewPrevBtn'), nextBtn = $('ps_overviewNextBtn');
+  if(prevBtn) prevBtn.addEventListener('click', ()=>{ if(overviewPage>1){ overviewPage--; renderOverviewTable(); } });
+  if(nextBtn) nextBtn.addEventListener('click', ()=>{ if(overviewPage<totalPages){ overviewPage++; renderOverviewTable(); } });
 }
 
 function renderOverviewStats(){
@@ -1620,6 +1666,31 @@ let currentEditPerm = 'none';
 function refreshEditModalFieldStates(){
   applyFieldPermissions(currentEditPerm);
 }
+
+/* ---------- 회수 정보: 케이스 부자재는 시리얼 대신 사용/미사용 선택 ---------- */
+function updateReturnFieldsForCategory(){
+  const isCaseAccessory = $('ps_f_category').value === '케이스 부자재';
+  $('ps_f_returnMaterialField').style.display = isCaseAccessory ? 'none' : '';
+  $('ps_f_model2Field').style.display = isCaseAccessory ? 'none' : '';
+  $('ps_f_customerSerialField').style.display = isCaseAccessory ? 'none' : '';
+  $('ps_f_returnUsageField').style.display = isCaseAccessory ? '' : 'none';
+
+  const disabled = $('ps_f_customerSerial').disabled;
+  $('ps_f_returnUsedBtn').disabled = disabled;
+  $('ps_f_returnUnusedBtn').disabled = disabled;
+  const used = !!($('ps_f_customerSerial').value && $('ps_f_customerSerial').value.trim());
+  $('ps_f_returnUsedBtn').classList.toggle('active', used);
+  $('ps_f_returnUnusedBtn').classList.toggle('active', !used);
+}
+function setCaseAccessoryUsage(used){
+  if($('ps_f_returnUsedBtn').disabled) return;
+  $('ps_f_customerSerial').value = used ? '사용' : '';
+  updateReturnFieldsForCategory();
+}
+$('ps_f_returnUsedBtn').addEventListener('click', ()=> setCaseAccessoryUsage(true));
+$('ps_f_returnUnusedBtn').addEventListener('click', ()=> setCaseAccessoryUsage(false));
+$('ps_f_category').addEventListener('change', updateReturnFieldsForCategory);
+
 function logActivity(action, detail){
   data.activityLog.unshift({ ts:new Date().toISOString(), username:currentUser.username, action, detail });
   if(data.activityLog.length>500) data.activityLog = data.activityLog.slice(0,500);
@@ -1736,6 +1807,7 @@ function openModal(id, monthKey){
   currentEditPerm = getEditPermission(row);
   refreshEditModalFieldStates();
   refreshShipConfirmUI();
+  updateReturnFieldsForCategory();
   $('ps_deleteBtn').style.display = (row && currentEditPerm==='full') ? 'inline-flex' : 'none';
 
   const isCreator = !!(row && currentUser && row.createdBy===currentUser.username);
@@ -1950,14 +2022,17 @@ $('ps_trackCloseBtn').addEventListener('click', closeTrackModal);
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeModal(); closeInvModal(); closeRequestModal(); closeTrackModal(); $('ps_logPage').classList.remove('show'); $('ps_inboxPage').classList.remove('show'); } });
 
 $('ps_searchInput').addEventListener('input', (e)=>{ searchTerm = e.target.value; renderTable(); });
-$('ps_overviewSearchInput').addEventListener('input', (e)=>{ overviewSearchTerm = e.target.value; renderOverviewTable(); });
+$('ps_overviewSearchInput').addEventListener('input', (e)=>{ overviewSearchTerm = e.target.value; overviewPage = 1; renderOverviewTable(); });
+$('ps_overviewStatusFilter').innerHTML = Object.keys(OVERVIEW_STATUS_LABEL).map(k=>'<option value="'+k+'">'+OVERVIEW_STATUS_LABEL[k]+'</option>').join('');
+$('ps_overviewStatusFilter').addEventListener('change', (e)=>{ overviewStatusFilter = e.target.value; overviewPage = 1; renderOverviewTable(); });
 document.querySelectorAll('#ps_rail .slot[data-status]').forEach(el=>{
   el.addEventListener('click', ()=>{ activeStatus = el.dataset.status; renderRailAndStats(); renderTable(); });
 });
 
 $('ps_inventoryTab').addEventListener('click', ()=>{ currentView='inventory'; render(); });
+$('ps_brandHome').addEventListener('click', ()=>{ currentView='inventory'; render(); });
 $('ps_statsTab').addEventListener('click', ()=>{ currentView='stats'; render(); });
-$('ps_overviewTab').addEventListener('click', ()=>{ currentView='overview'; activeCategory='ALL'; overviewSearchTerm=''; $('ps_overviewSearchInput').value=''; render(); });
+$('ps_overviewTab').addEventListener('click', ()=>{ currentView='overview'; activeCategory='ALL'; overviewSearchTerm=''; overviewStatusFilter='ALL'; overviewPage=1; $('ps_overviewSearchInput').value=''; $('ps_overviewStatusFilter').value='ALL'; render(); });
 $('ps_statsYear').addEventListener('change', (e)=>{ statsYear = e.target.value; renderStatsView(); });
 $('ps_statsExportBtn').addEventListener('click', exportStatsExcel);
 
