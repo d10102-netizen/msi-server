@@ -6,9 +6,13 @@ const geoip = require('geoip-lite');
 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12시간
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
 const MAX_LOGIN_FAILS = 5;
 const LOCKOUT_MS = 24 * 60 * 60 * 1000; // 24시간
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.SESSION_SECRET) {
+  console.warn('[경고] SESSION_SECRET 환경변수가 설정되지 않았습니다. 서버가 재시작되면 모든 로그인이 풀립니다. Render 환경변수에 SESSION_SECRET을 추가해주세요.');
+}
 
 const app = express();
 app.set('trust proxy', true); // Render 등 프록시 뒤에서도 실제 접속 IP를 인식하기 위함
@@ -47,7 +51,39 @@ app.use((req, res, next) => {
 
 let col; // mongodb collection handle (앱 데이터)
 let secCol; // mongodb collection handle (로그인 보안 상태)
-const sessions = new Map(); // token -> { username, role, expires }
+
+/* ---------- 서명된 로그인 토큰 (서버 재시작에도 유지됨) ---------- */
+function base64url(buf) {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function base64urlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  return Buffer.from(str, 'base64');
+}
+function makeToken(username, role) {
+  const payload = { username, role, exp: Date.now() + SESSION_TTL_MS };
+  const body = base64url(Buffer.from(JSON.stringify(payload)));
+  const sig = base64url(crypto.createHmac('sha256', SESSION_SECRET).update(body).digest());
+  return body + '.' + sig;
+}
+function verifyToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [body, sig] = parts;
+  const expectedSig = base64url(crypto.createHmac('sha256', SESSION_SECRET).update(body).digest());
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expectedSig);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const payload = JSON.parse(base64urlDecode(body).toString());
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
 
 /* ---------- 비밀번호 해싱 ---------- */
 function hashPassword(plain) {
@@ -67,21 +103,15 @@ function verifyPassword(plain, stored) {
     return false;
   }
 }
-function makeToken() {
-  return crypto.randomBytes(24).toString('hex');
-}
-
 /* ---------- 세션 인증 미들웨어 ---------- */
 function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  const sess = token && sessions.get(token);
-  if (!sess || sess.expires < Date.now()) {
-    if (token) sessions.delete(token);
+  const payload = verifyToken(token);
+  if (!payload) {
     return res.status(401).json({ error: '로그인이 필요합니다' });
   }
-  sess.expires = Date.now() + SESSION_TTL_MS; // 사용할 때마다 만료 연장
-  req.user = { username: sess.username, role: sess.role };
+  req.user = { username: payload.username, role: payload.role };
   next();
 }
 
@@ -211,8 +241,7 @@ app.post('/api/login', async (req, res) => {
     await resetLoginFailures(username);
     await logLoginEvent(username, true, ip);
 
-    const token = makeToken();
-    sessions.set(token, { username: acct.username, role: acct.role, expires: Date.now() + SESSION_TTL_MS });
+    const token = makeToken(acct.username, acct.role);
     res.json({ ok: true, token, role: acct.role, mustChangePassword: !!acct.mustChangePassword });
   } catch (e) {
     console.error('로그인 실패:', e.message);
@@ -258,9 +287,8 @@ app.post('/api/signup', async (req, res) => {
 
 /* ---------- 로그아웃 ---------- */
 app.post('/api/logout', requireAuth, (req, res) => {
-  const authHeader = req.headers['authorization'] || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  if (token) sessions.delete(token);
+  // 토큰이 서명 방식(무상태)이라 서버에 따로 지울 목록이 없습니다.
+  // 실제 로그아웃 처리는 클라이언트가 저장해둔 토큰을 지우는 것으로 이뤄집니다.
   res.json({ ok: true });
 });
 
