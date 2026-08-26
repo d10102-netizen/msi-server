@@ -3,18 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
 <title>MSI · 자재 선출고 관리</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
+    color-scheme: light;
     --bg: #FFFFFF; --panel: #F6F7F9; --panel-2: #FFFFFF; --line: #E1E4EA; --line-2: #CBD1DB;
     --text: #14161B; --text-dim: #53575F; --text-faint: #93979F;
     --copper: #B5723F; --copper-bright: #C98A52; --steel: #3E6E96; --cooler: #1E8FA6;
     --good: #2F9E5B; --warn: #E0A828; --bad: #D93B3E; --violet:#8B5FBF;
-    --radius: 3px;
+    --radius: 4px;
   }
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{ color-scheme: light; background:var(--bg); }
+  table, thead, tbody, tr, td, th{ background-color:var(--bg); color-scheme:light; }
+  tbody tr:active, .receipt-link:active, .invoice-link:active{ background:rgba(181,114,63,0.10); }
   body{ margin:0; background:var(--bg); color:var(--text); font-family:'Inter', sans-serif; font-size:14px; -webkit-font-smoothing:antialiased; }
   .disp{ font-family:'Space Grotesk', sans-serif; }
   .mono{ font-family:'JetBrains Mono', monospace; letter-spacing:0.3px; white-space:nowrap; }
@@ -94,6 +99,7 @@
   tbody td{ padding:7px 12px; border-bottom:1px solid #EDEFF3; font-size:12.5px; vertical-align:middle; text-align:center; }
   tbody tr:nth-child(even){ background:#FAFBFC; }
   tbody tr:hover{ background:var(--panel); }
+  tbody tr{ transition:background .1s ease; }
   .item-name{ font-weight:600; }
   .cell-dim{ color:var(--text-dim); }
   .cell-note{ color:var(--text-faint); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -102,7 +108,7 @@
   .req-date{ font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:var(--text); line-height:1.25; }
   .req-date-sub{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-dim); line-height:1.25; }
   .receipt-preview{ background:var(--panel); border-radius:var(--radius); padding:8px 12px; font-size:12.5px; color:var(--text-dim); margin-bottom:14px; }
-  .req-row{ display:grid; grid-template-columns: 0.9fr 0.9fr 0.9fr 1.5fr 1.1fr 1.2fr 0.95fr; gap:10px; align-items:start; }
+  .req-row{ display:grid; grid-template-columns: 1.1fr 0.9fr 1.4fr 1.05fr 0.85fr 1.2fr 0.95fr; gap:10px; align-items:start; }
   .req-row-edit{ display:grid; grid-template-columns: 1fr 0.85fr 1.6fr 1.4fr 1.1fr; gap:12px; align-items:start; }
   .direct-ship-row{ display:flex; align-items:center; gap:18px; margin:16px 0 6px; padding:14px 16px; background:var(--panel); border-radius:6px; }
   .direct-ship-check{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; white-space:nowrap; color:var(--text); cursor:pointer; }
@@ -122,8 +128,7 @@
   .track-flyout{
     position:fixed; z-index:60;
     width:300px;
-    background:rgba(230,126,34,0.16);
-    backdrop-filter:blur(2px);
+    background:#FBE8D4;
     border:1px solid rgba(230,126,34,0.4);
     border-top:none;
     box-shadow:0 14px 30px rgba(120,60,0,0.14);
@@ -131,10 +136,11 @@
     transform:scaleY(0);
     transform-origin:top;
     opacity:0;
+    visibility:hidden;
     pointer-events:none;
-    transition:transform .22s ease, opacity .16s ease;
+    transition:transform .22s ease, opacity .16s ease, visibility 0s linear .22s;
   }
-  .track-flyout.show{ transform:scaleY(1); opacity:1; pointer-events:auto; }
+  .track-flyout.show{ transform:scaleY(1); opacity:1; visibility:visible; pointer-events:auto; transition:transform .22s ease, opacity .16s ease; }
   .track-flyout-close{ position:absolute; top:8px; right:10px; border:none; background:transparent; font-size:13px; color:rgba(90,40,0,0.6); cursor:pointer; }
   .track-flyout-close:hover{ color:rgba(90,40,0,0.9); }
   .track-flyout-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:#6b3300; margin-bottom:8px; }
@@ -192,7 +198,7 @@
   .log-entry-user{ font-weight:700; color:var(--text); }
   .log-entry-time{ color:var(--text-faint); font-family:'JetBrains Mono',monospace; font-size:11px; }
   .log-entry-detail{ color:var(--text-dim); margin-top:3px; }
-  .acct-panel{ border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:16px; }
+  .acct-panel{ border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(20,22,27,0.04); }
   .acct-panel-title{ font-size:12px; font-weight:700; margin-bottom:10px; }
   .acct-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:12.5px; }
   .acct-row:last-child{ border-bottom:none; }
@@ -218,7 +224,7 @@
   .inv-summary .mono{ color:var(--copper); font-size:18px; }
 
   /* ---- stats / dashboard view ---- */
-  .chart-panel{ border:1px solid var(--line); border-radius:6px; padding:18px 20px; background:var(--panel-2); margin-bottom:16px; }
+  .chart-panel{ border:1px solid var(--line); border-radius:6px; padding:18px 20px; background:var(--panel-2); margin-bottom:16px; box-shadow:0 1px 2px rgba(20,22,27,0.04); }
   .chart-panel-title{ font-size:11.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:16px; }
   .chart-row{ display:flex; gap:16px; align-items:stretch; margin-bottom:16px; }
   .chart-row .chart-panel{ flex:1; margin-bottom:0; min-width:0; }
@@ -238,13 +244,20 @@
   .ret-sub-label{ font-size:10px; color:var(--text-faint); margin-top:2px; text-transform:uppercase; letter-spacing:0.4px; }
   .usage-ratio{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
   .usage-bar{ height:10px; border-radius:6px; overflow:hidden; display:flex; background:var(--panel); }
+  .top-list{ display:flex; flex-direction:column; gap:10px; padding:4px 2px; }
+  .top-row{ display:flex; align-items:center; gap:10px; }
+  .top-rank{ width:20px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--text-faint); font-size:12px; text-align:center; }
+  .top-name{ width:190px; flex-shrink:0; font-size:12.5px; font-weight:500; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .top-bar-wrap{ flex:1; height:8px; background:var(--panel); border-radius:5px; overflow:hidden; }
+  .top-bar{ height:100%; background:var(--copper); border-radius:5px; transition:width 0.3s ease; }
+  .top-count{ width:48px; flex-shrink:0; text-align:right; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--text); }
   .usage-bar-used{ background:var(--good); }
   .usage-bar-unused{ background:var(--warn); }
   .usage-legend{ display:flex; justify-content:space-between; margin-top:8px; font-size:11.5px; color:var(--text-dim); }
   .usage-legend b{ color:var(--text); }
   .usage-empty{ font-size:11.5px; color:var(--text-faint); text-align:center; margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
 
-  .overlay{ position:fixed; inset:0; background:rgba(20,22,27,0.45); display:none; align-items:center; justify-content:center; z-index:50; backdrop-filter:blur(2px); }
+  .overlay{ position:fixed; inset:0; background:rgba(20,22,27,0.6); display:none; align-items:center; justify-content:center; z-index:50; }
   .overlay.show{ display:flex; }
   .modal{ background:var(--panel-2); border:1px solid var(--line); border-radius:6px; width:480px; max-width:92vw; padding:22px; box-shadow:0 20px 50px rgba(20,22,27,0.18); max-height:88vh; overflow-y:auto; }
   .modal h3{ margin:0 0 16px; font-size:15px; font-family:'Space Grotesk',sans-serif; }
@@ -275,6 +288,39 @@
     .req-row-edit{ grid-template-columns:1fr; }
     .proc-row{ grid-template-columns:1fr; }
     .proc-row-2{ grid-template-columns:1fr; }
+
+    header{ flex-wrap:wrap; padding:10px 14px; gap:8px; row-gap:8px; }
+    .brand-sub{ display:none; }
+    .header-actions{ flex-wrap:wrap; gap:6px; width:100%; justify-content:flex-start; }
+    .header-actions .btn{ font-size:11.5px; padding:6px 9px; }
+    .user-badge{ font-size:12px; }
+    .save-status{ font-size:10.5px; }
+
+    .tabbar-scroll{ -webkit-overflow-scrolling:touch; }
+    .tab-pinned{ font-size:12.5px; padding:9px 12px; white-space:nowrap; }
+
+    .main-head{ flex-direction:column; align-items:stretch; gap:10px; }
+    .main-title.disp{ font-size:16px; flex-wrap:wrap; gap:6px; }
+    .filters{ width:100%; }
+    .filters .search{ width:100%; }
+
+    .modal{ width:94vw; padding:16px; max-height:92vh; }
+    .field-row{ flex-direction:column; gap:0; }
+    .direct-ship-row{ flex-direction:column; align-items:stretch; gap:10px; }
+    .direct-ship-row .field{ max-width:none; }
+
+    .chart-panel{ padding:14px; }
+    .top-name{ width:110px; }
+
+    .rail{ display:none; }
+    .slot-code{ display:none; }
+  }
+
+  @media (max-width:480px){
+    .auth-box{ width:92vw; padding:24px 18px; }
+    .header-actions .btn span.btn-label-full{ display:none; }
+    .ret-sub{ flex-wrap:wrap; gap:10px; }
+    .top-name{ width:80px; font-size:11.5px; }
   }
 </style>
 </head>
@@ -457,7 +503,7 @@
           <span id="ps_statusName">전체보기</span> <span class="code" id="ps_statusCode">ALL</span>
         </div>
         <div class="filters">
-          <input class="search" id="ps_searchInput" placeholder="접수번호 / 고객명 / 전화번호 / 제품명 검색..." />
+          <input class="search" id="ps_searchInput" placeholder="접수번호 / 업체명 / 고객명 / 전화번호 / 제품명 검색..." />
         </div>
       </div>
       <div id="ps_tableWrap"></div>
@@ -502,6 +548,13 @@
           <div id="ps_usagePie"></div>
         </div>
       </div>
+
+      <div class="chart-row">
+        <div class="chart-panel" style="flex:1;">
+          <div class="chart-panel-title">업체별 선출고 건수 TOP 5</div>
+          <div id="ps_topCustomers"></div>
+        </div>
+      </div>
     </main>
 
     <main id="ps_overviewMain" style="display:none; width:100%;">
@@ -511,7 +564,7 @@
           <select id="ps_overviewStatusFilter" style="margin-left:10px; font-size:13px; font-weight:400; padding:5px 8px; border:1px solid var(--line); border-radius:var(--radius); background:#fff;"></select>
         </div>
         <div class="filters">
-          <input class="search" id="ps_overviewSearchInput" placeholder="자재명 / 모델명 / 시리얼 / 송장번호 검색..." />
+          <input class="search" id="ps_overviewSearchInput" placeholder="자재명 / 모델명 / 시리얼 / 송장번호 / 업체명 / 고객명 검색..." />
         </div>
       </div>
       <div id="ps_overviewTableWrap"></div>
@@ -1472,6 +1525,16 @@ function getUsageStats(year){
   };
 }
 
+function getTopCustomers(year, limit){
+  const rows = allRowsWithMonth().filter(r=>r.__month.startsWith(year+'-') && r.customerName);
+  const counts = {};
+  rows.forEach(r=>{ counts[r.customerName] = (counts[r.customerName]||0)+1; });
+  return Object.keys(counts)
+    .map(name=>({ name, count: counts[name] }))
+    .sort((a,b)=> b.count-a.count)
+    .slice(0, limit||5);
+}
+
 function buildBarChartSVG(counts){
   const w=820, h=230, padL=34, padR=14, padT=24, padB=30;
   const max = Math.max(1, ...counts);
@@ -1568,6 +1631,20 @@ function renderStatsView(){
         '<div class="ret-sub-item"><div class="ret-sub-val">'+ret.max+'일</div><div class="ret-sub-label">최대</div></div>'+
         '<div class="ret-sub-item"><div class="ret-sub-val">'+ret.count+'건</div><div class="ret-sub-label">완료 건수</div></div>'+
       '</div>';
+
+  const top = getTopCustomers(statsYear, 5);
+  $('ps_topCustomers').innerHTML = top.length===0
+    ? '<div class="pie-empty-note">'+statsYear+'년에 등록된 데이터가 없어요</div>'
+    : '<div class="top-list">'+top.map((t,i)=>{
+        const maxCount = top[0].count;
+        const pct = Math.round(t.count/maxCount*100);
+        return '<div class="top-row">'+
+          '<span class="top-rank">'+(i+1)+'</span>'+
+          '<span class="top-name">'+esc(t.name)+'</span>'+
+          '<div class="top-bar-wrap"><div class="top-bar" style="width:'+pct+'%;"></div></div>'+
+          '<span class="top-count">'+t.count+'건</span>'+
+        '</div>';
+      }).join('')+'</div>';
 }
 
 function exportStatsExcel(){
@@ -1833,12 +1910,16 @@ function openRequestModal(){
   $('ps_r_category').value = '';
   $('ps_r_requestDate').value = todayStr();
   $('ps_r_symptom').value = '';
+  const saveBtn0 = $('ps_requestSaveBtn'); if(saveBtn0) saveBtn0.disabled = false;
   $('ps_requestOverlay').classList.add('show');
   setTimeout(()=>$('ps_r_customerName').focus(), 50);
 }
 function closeRequestModal(){ $('ps_requestOverlay').classList.remove('show'); }
 
 function saveRequestRow(){
+  const saveBtn = $('ps_requestSaveBtn');
+  if(saveBtn && saveBtn.disabled) return; // 연타로 인한 중복 등록 방지
+
   const shipMethod = $('ps_r_shipMethod').value;
   const customerName = $('ps_r_customerName').value.trim();
   const clientName = $('ps_r_clientName').value.trim();
@@ -1858,13 +1939,27 @@ function saveRequestRow(){
   if(!shipMethod){ alert('출고 방법을 선택해주세요'); $('ps_r_shipMethod').focus(); return; }
   if(!clientName){ alert('고객명을 입력해주세요'); $('ps_r_clientName').focus(); return; }
 
+  // 같은 담당자가 방금(2분 이내) 똑같은 내용(업체명+고객명+제품명)을 이미 등록했는지 확인
+  const twoMinAgo = Date.now() - 2*60*1000;
+  const recentDup = (data.months[currentMonth]||[]).find(r=>
+    r.createdBy===currentUser.username && r.customerName===customerName &&
+    r.clientName===clientName && r.material===material && r._createdAt && r._createdAt > twoMinAgo
+  );
+  if(recentDup){
+    const proceed = confirm('방금 "'+customerName+' / '+clientName+' / '+material+'" 내용으로 이미 등록하셨어요.\n정말 또 등록하시겠어요? (실수로 두 번 누르신 거라면 취소를 눌러주세요)');
+    if(!proceed) return;
+  }
+
+  if(saveBtn) saveBtn.disabled = true; // 저장 처리 중 중복 클릭 방지
+
   const newRow = {
     id: uid(), receiptNumber: generateReceiptNumber(), createdBy: currentUser.username,
     shipMethod,
     customerName, clientName, phone, address,
     material, category, requestDate, symptom,
     model:'', serial910:'', customerSerial:'',
-    shipDate:'', shipInvoice:'', returnDate:'', returnInvoice:''
+    shipDate:'', shipInvoice:'', returnDate:'', returnInvoice:'',
+    _createdAt: Date.now()
   };
   if(!data.months[currentMonth]) data.months[currentMonth] = [];
   data.months[currentMonth].push(newRow);
@@ -1875,6 +1970,7 @@ function saveRequestRow(){
   updateInboxBadge();
   render();
   closeRequestModal();
+  if(saveBtn) setTimeout(()=>{ saveBtn.disabled = false; }, 1200);
 }
 
 function saveRow(){
