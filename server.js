@@ -186,7 +186,8 @@ async function ensureBootstrapAccount() {
       username: '김민준',
       password: hashPassword('1234'),
       role: 'root',
-      mustChangePassword: true
+      mustChangePassword: true,
+      idMigrated: false
     });
     await col.updateOne({ _id: 'main' }, { $set: { data: d, updatedAt: new Date() } }, { upsert: true });
     console.log('기본 관리자 계정을 생성했습니다 (최초 로그인 시 비밀번호 변경 필요)');
@@ -242,7 +243,13 @@ app.post('/api/login', async (req, res) => {
     await logLoginEvent(username, true, ip);
 
     const token = makeToken(acct.username, acct.role);
-    res.json({ ok: true, token, role: acct.role, mustChangePassword: !!acct.mustChangePassword });
+    res.json({
+      ok: true,
+      token,
+      role: acct.role,
+      mustChangePassword: !!acct.mustChangePassword,
+      needsIdMigration: !acct.idMigrated
+    });
   } catch (e) {
     console.error('로그인 실패:', e.message);
     res.status(500).json({ error: e.message });
@@ -290,6 +297,48 @@ app.post('/api/logout', requireAuth, (req, res) => {
   // 토큰이 서명 방식(무상태)이라 서버에 따로 지울 목록이 없습니다.
   // 실제 로그아웃 처리는 클라이언트가 저장해둔 토큰을 지우는 것으로 이뤄집니다.
   res.json({ ok: true });
+});
+
+/* ---------- 아이디 마이그레이션 (예전 실명 계정 -> 새 아이디) ---------- */
+app.post('/api/migrate-id', requireAuth, async (req, res) => {
+  try {
+    if (!col) return res.status(500).json({ error: 'DB 연결 안 됨' });
+    const { newUsername, currentPassword } = req.body || {};
+    if (!newUsername || !currentPassword) {
+      return res.status(400).json({ error: '새 아이디와 현재 비밀번호를 입력하세요' });
+    }
+    const cleanNew = String(newUsername).trim();
+    if (!cleanNew || cleanNew.length < 2) {
+      return res.status(400).json({ error: '아이디는 2자 이상 입력해주세요' });
+    }
+
+    const doc = await col.findOne({ _id: 'main' });
+    const d = (doc && doc.data) || {};
+    const accounts = d.accounts || [];
+    const acct = accounts.find(a => a.username === req.user.username);
+    if (!acct) return res.status(404).json({ error: '계정을 찾을 수 없습니다' });
+
+    const isLegacyPlaintext = typeof acct.password === 'string' && !acct.password.includes(':');
+    const ok = isLegacyPlaintext ? acct.password === currentPassword : verifyPassword(currentPassword, acct.password);
+    if (!ok) return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다' });
+
+    if (cleanNew !== acct.username) {
+      const taken = accounts.find(a => a.username === cleanNew) ||
+        (d.signupRequests || []).find(r => r.username === cleanNew);
+      if (taken) return res.status(409).json({ error: '이미 사용중이거나 대기중인 아이디입니다' });
+    }
+
+    const oldUsername = acct.username;
+    acct.username = cleanNew;
+    acct.idMigrated = true;
+    await col.updateOne({ _id: 'main' }, { $set: { data: d, updatedAt: new Date() } }, { upsert: true });
+
+    const token = makeToken(cleanNew, acct.role);
+    res.json({ ok: true, token, newUsername: cleanNew, oldUsername, role: acct.role });
+  } catch (e) {
+    console.error('아이디 마이그레이션 실패:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ---------- 비밀번호 해시 발급 (로그인 상태에서만) ---------- */
