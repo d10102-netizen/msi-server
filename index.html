@@ -1,0 +1,2738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<title>MSI · 자재 선출고 관리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: light;
+    --bg: #FFFFFF; --panel: #F6F7F9; --panel-2: #FFFFFF; --line: #E1E4EA; --line-2: #CBD1DB;
+    --text: #14161B; --text-dim: #53575F; --text-faint: #93979F;
+    --copper: #B5723F; --copper-bright: #C98A52; --steel: #3E6E96; --cooler: #1E8FA6;
+    --good: #2F9E5B; --warn: #E0A828; --bad: #D93B3E; --violet:#8B5FBF;
+    --radius: 4px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{ color-scheme: light; background:var(--bg); }
+  table, thead, tbody, tr, td, th{ background-color:var(--bg); color-scheme:light; }
+  tbody tr:active, .receipt-link:active, .invoice-link:active{ background:rgba(181,114,63,0.10); }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:'Inter', sans-serif; font-size:14px; -webkit-font-smoothing:antialiased; }
+  .disp{ font-family:'Space Grotesk', sans-serif; }
+  .mono{ font-family:'JetBrains Mono', monospace; letter-spacing:0.3px; white-space:nowrap; }
+  #ps_app{ display:flex; flex-direction:column; min-height:100vh; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; padding:14px 22px; border-bottom:1px solid var(--line); background:#FBFBFC; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-mascot{ width:34px; height:34px; flex-shrink:0; }
+  .brand-title{ font-size:16px; font-weight:700; letter-spacing:0.2px; }
+  .brand-sub{ font-size:11px; color:var(--text-faint); margin-top:1px; }
+  .save-status{ font-size:11.5px; color:var(--text-faint); display:flex; align-items:center; gap:7px; }
+  .save-dot{ width:6px; height:6px; border-radius:50%; background:var(--good); box-shadow:0 0 6px var(--good); }
+  .save-dot.saving{ background:var(--warn); box-shadow:0 0 6px var(--warn); animation:pulse 1s infinite; }
+  @keyframes pulse{ 50%{opacity:0.35;} }
+  .header-actions{ display:flex; align-items:center; gap:10px; }
+  .btn{ font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600; padding:8px 13px; border-radius:var(--radius); border:1px solid var(--line); background:var(--panel-2); color:var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all .12s; white-space:nowrap; }
+  .btn:hover{ border-color:var(--copper); color:var(--text); }
+  .btn.primary{ background:var(--copper); border-color:var(--copper); color:#fff; }
+  .btn.primary:hover{ background:var(--copper-bright); border-color:var(--copper-bright); }
+  .btn.ghost{ background:transparent; }
+  .btn.home{ color:var(--steel); border-color:var(--line); }
+  .btn.home:hover{ border-color:var(--steel); }
+
+  .tabbar{ display:flex; align-items:center; padding:0 22px; border-bottom:1px solid var(--line); background:#FBFBFC; }
+  .tab-pinned{ font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:700; padding:12px 12px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--copper); cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  .tab-pinned:hover{ color:var(--copper-bright); }
+  .tab-pinned.active{ border-bottom:2px solid var(--copper); }
+  .tab-pinned.pinned-last{ padding-right:16px; margin-right:10px; border-right:1px solid var(--line); }
+  .tab-pinned.muted{ color:var(--text-faint); font-weight:500; font-size:11.5px; opacity:0.8; }
+  .tab-pinned.muted:hover{ color:var(--text-dim); opacity:1; }
+  .tab-pinned.muted.active{ border-bottom-color:var(--text-faint); }
+  .tabbar-scroll{ display:flex; align-items:center; overflow-x:auto; flex:1; min-width:0; }
+  .tab{ font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; padding:12px 12px; background:transparent; border:none; color:var(--text-faint); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; flex-shrink:0; }
+  .tab:hover{ color:var(--text-dim); }
+  .tab.active{ color:var(--text); border-bottom:2px solid var(--copper); }
+  .tab-add{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; padding:10px 12px; background:transparent; border:none; color:var(--text-faint); cursor:pointer; margin-left:2px; border:1px dashed transparent; border-radius:var(--radius); flex-shrink:0; }
+  .tab-add:hover{ color:var(--copper); border-color:var(--line); }
+  .tab-merge{ font-family:'Inter',sans-serif; font-size:12px; font-weight:600; padding:8px 12px; background:transparent; border:1px dashed var(--line-2); color:var(--text-faint); cursor:pointer; margin-left:6px; border-radius:var(--radius); flex-shrink:0; white-space:nowrap; }
+  .tab-merge:hover{ color:var(--steel); border-color:var(--steel); background:rgba(62,110,150,0.06); }
+
+  .stats{ display:grid; grid-template-columns:2fr 1fr 1fr; gap:1px; background:var(--line); border-bottom:1px solid var(--line); }
+  .stat{ background:var(--bg); padding:16px 18px; }
+  .stat.stat-big{ padding:22px 26px; }
+  .stat-label{ font-size:15px; color:#000; margin-bottom:8px; font-weight:600; }
+  .stat-value{ font-size:15px; font-weight:700; color:#000; }
+
+  .body{ flex:1; display:flex; }
+  nav.rail{ width:190px; flex-shrink:0; border-right:1px solid var(--line); padding:16px 10px; background:#FBFBFC; display:flex; flex-direction:column; }
+  .rail-label{ font-size:10px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.7px; padding:0 8px 10px; }
+  .slot{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:var(--radius); cursor:pointer; margin-bottom:2px; color:var(--text-dim); font-size:13px; font-weight:500; border-left:2px solid transparent; }
+  .slot:hover{ background:var(--panel); color:var(--text); }
+  .slot.active{ background:#F0EBE4; color:var(--text); border-left:2px solid var(--copper); }
+  .slot-pin{ width:5px; height:5px; border-radius:1px; background:var(--text-faint); flex-shrink:0; }
+  .slot.active .slot-pin{ background:var(--copper); box-shadow:0 0 5px var(--copper); }
+  .slot-name{ flex:1; }
+  .slot-code{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-faint); }
+  .rail-spacer{ flex:1; }
+  .rail-divider{ height:1px; background:var(--line); margin:10px 4px; }
+  .slot-intake{ color:var(--copper); font-weight:600; border:1px dashed var(--line); }
+  .slot-intake:hover{ border-color:var(--copper); background:var(--panel); }
+  .slot-intake .slot-pin{ background:var(--copper); }
+
+  main{ flex:1; padding:20px 24px; min-width:0; }
+  .main-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:16px; flex-wrap:wrap; }
+  .main-title{ font-size:17px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .main-title .code{ font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--copper); border:1px solid var(--line); padding:2px 6px; border-radius:2px; }
+  .filters{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .search, select.filter-select{ background:var(--panel-2); border:1px solid var(--line); border-radius:var(--radius); padding:7px 11px; color:var(--text); font-size:12.5px; font-family:'Inter',sans-serif; }
+  .search{ width:220px; }
+  .search:focus, select.filter-select:focus{ outline:none; border-color:var(--copper); }
+
+  table{ width:100%; border-collapse:collapse; }
+  thead th{ text-align:center; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-faint); padding:9px 10px; border-bottom:1px solid var(--line); font-weight:600; white-space:nowrap; }
+  thead th.sortable{ cursor:pointer; user-select:none; }
+  thead th.sortable:hover{ color:var(--text-dim); }
+  thead th.sort-active{ color:var(--copper); }
+  thead th.sortable .sort-arrow{ font-size:9px; margin-left:3px; opacity:0.7; }
+  thead tr.grp-row th{ background:var(--panel); font-size:9.5px; color:var(--text-dim); font-weight:700; padding:6px 8px; border-bottom:1px solid var(--line); }
+  tbody td{ padding:7px 12px; border-bottom:1px solid #EDEFF3; font-size:12.5px; vertical-align:middle; text-align:center; }
+  tbody tr:nth-child(even){ background:#FAFBFC; }
+  tbody tr:hover{ background:var(--panel); }
+  tbody tr{ transition:background .1s ease; }
+  .item-name{ font-weight:600; }
+  .cell-dim{ color:var(--text-dim); }
+  .cell-note{ color:var(--text-faint); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  th.status-col, td.status-col{ width:92px; }
+  .grp-end{ border-right:1px solid var(--line-2); }
+  .req-date{ font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:700; color:var(--text); line-height:1.25; }
+  .req-date-sub{ font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--text-dim); line-height:1.25; }
+  .receipt-preview{ background:var(--panel); border-radius:var(--radius); padding:8px 12px; font-size:12.5px; color:var(--text-dim); margin-bottom:14px; }
+  .req-row{ display:grid; grid-template-columns: 1.1fr 0.9fr 1.4fr 1.05fr 0.85fr 1.2fr 0.95fr; gap:10px; align-items:start; }
+  .req-row-edit{ display:grid; grid-template-columns: 1fr 0.85fr 1.6fr 1.4fr 1.1fr; gap:12px; align-items:start; }
+  .direct-ship-row{ display:flex; align-items:center; gap:18px; margin:16px 0 6px; padding:14px 16px; background:var(--panel); border-radius:6px; }
+  .direct-ship-check{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; white-space:nowrap; color:var(--text); cursor:pointer; }
+  .direct-ship-check input[type="checkbox"]{ width:16px; height:16px; cursor:pointer; }
+  .direct-ship-row .field{ flex:1; max-width:260px; margin-bottom:0; }
+  .req-row-edit .field{ margin-bottom:0; }
+  .req-row .field{ margin-bottom:0; }
+  .proc-row{ display:grid; grid-template-columns: repeat(5, 1fr); gap:12px; margin-bottom:4px; }
+  .proc-row-2{ display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin-bottom:4px; }
+  .proc-row .field, .proc-row-2 .field{ margin-bottom:0; }
+  .receipt-preview .mono{ font-weight:700; color:var(--copper); }
+  .receipt-link{ font-family:'JetBrains Mono',monospace; font-weight:700; color:#1155CC; text-decoration:underline; cursor:pointer; }
+  .receipt-link:hover{ color:var(--copper); }
+  .invoice-link{ text-decoration:underline dotted; cursor:pointer; color:#000; font-weight:700; }
+  .invoice-link:hover{ color:var(--copper); }
+
+  .track-flyout{
+    position:fixed; z-index:60;
+    width:300px;
+    background:#FBE8D4;
+    border:1px solid rgba(230,126,34,0.4);
+    border-top:none;
+    box-shadow:0 14px 30px rgba(120,60,0,0.14);
+    padding:16px 18px 18px;
+    transform:scaleY(0);
+    transform-origin:top;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:transform .22s ease, opacity .16s ease, visibility 0s linear .22s;
+  }
+  .track-flyout.show{ transform:scaleY(1); opacity:1; visibility:visible; pointer-events:auto; transition:transform .22s ease, opacity .16s ease; }
+  .track-flyout-close{ position:absolute; top:8px; right:10px; border:none; background:transparent; font-size:13px; color:rgba(90,40,0,0.6); cursor:pointer; }
+  .track-flyout-close:hover{ color:rgba(90,40,0,0.9); }
+  .track-flyout-title{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:#6b3300; margin-bottom:8px; }
+  .track-flyout-invoice{ font-size:12px; color:#7a4310; margin-bottom:14px; }
+  .track-flyout-invoice .mono{ font-weight:700; color:#5a2e00; }
+  .track-flyout-link{ display:block; text-align:center; margin-top:14px; padding:9px 12px; border-radius:var(--radius); background:#C0392B; color:#fff; font-size:12.5px; font-weight:700; text-decoration:none; }
+  .track-flyout-link:hover{ background:#A6301F; }
+
+  .track-stepper{ display:flex; flex-direction:column; }
+  .track-step{ display:flex; align-items:center; gap:11px; padding:7px 0; position:relative; }
+  .track-dot{ width:15px; height:15px; border-radius:50%; background:#fff; border:2px solid rgba(90,40,0,0.3); flex-shrink:0; z-index:1; transition:all .15s; }
+  .track-step.done .track-dot{ background:#C0392B; border-color:#C0392B; }
+  .track-line{ position:absolute; left:6px; top:-50%; width:2px; height:100%; background:rgba(90,40,0,0.25); }
+  .track-step:first-child .track-line{ display:none; }
+  .track-step.done .track-line{ background:#C0392B; }
+  .track-label{ font-size:12.5px; font-weight:600; color:rgba(90,40,0,0.55); }
+  .track-step.done .track-label{ color:#5a2e00; }
+  .track-hint{ font-size:10.5px; color:rgba(90,40,0,0.6); margin-top:6px; line-height:1.5; }
+
+  .log-page{ position:fixed; inset:0; background:#fff; z-index:200; display:none; flex-direction:column; }
+  .log-page.show{ display:flex; }
+  .log-page-header{ display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid var(--line); flex-shrink:0; }
+  .log-page-title{ font-weight:700; font-size:16px; }
+  .log-page-close{ border:none; background:transparent; font-size:18px; cursor:pointer; color:var(--text-dim); width:34px; height:34px; border-radius:6px; }
+  .log-page-close:hover{ background:var(--panel); color:var(--text); }
+  .log-page-body{ flex:1; overflow-y:auto; padding:24px; }
+
+  .auth-page{ position:fixed; inset:0; background:var(--bg); z-index:300; display:flex; align-items:center; justify-content:center; }
+  .auth-box{ width:360px; max-width:92vw; }
+  .auth-brand{ display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:22px; }
+  .auth-brand-title{ font-size:16px; font-weight:700; }
+  .auth-box h3{ text-align:center; margin:0 0 20px; font-size:17px; }
+  .auth-error{ color:var(--bad); font-size:12px; margin:-6px 0 12px; min-height:14px; }
+  .auth-success{ color:var(--good); font-size:12.5px; margin:-4px 0 14px; padding:10px 12px; background:rgba(47,158,91,0.08); border:1px solid rgba(47,158,91,0.25); border-radius:var(--radius); line-height:1.5; }
+  .auth-hint{ font-size:12px; color:var(--text-dim); text-align:center; margin-bottom:16px; line-height:1.5; }
+  .auth-switch{ text-align:center; font-size:12.5px; color:var(--text-faint); margin-top:16px; }
+  .auth-switch a{ color:var(--copper); text-decoration:underline; cursor:pointer; font-weight:600; }
+
+  .user-badge{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim); background:var(--panel); padding:6px 11px; border-radius:99px; }
+  .user-badge .role-tag{ font-size:10px; font-weight:700; padding:2px 7px; border-radius:99px; }
+  .role-tag.role-root{ background:rgba(217,59,62,0.14); color:var(--bad); }
+  .role-tag.role-mid{ background:rgba(224,168,40,0.16); color:#95720C; }
+  .role-tag.role-operator{ background:rgba(139,95,191,0.16); color:var(--violet); }
+  .role-tag.role-staff{ background:rgba(62,110,150,0.14); color:var(--steel); }
+  .toggle-btn{ background:#fff; }
+  .toggle-btn.active{ background:var(--copper); border-color:var(--copper); color:#fff; }
+
+  .log-split{ display:flex; gap:20px; height:100%; }
+  .log-col{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .log-col-title{ font-size:12.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; }
+  .log-entry{ padding:10px 12px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .log-entry.unread{ background:rgba(181,114,63,0.06); }
+  .inbox-badge{ display:inline-block; background:var(--bad); color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:99px; margin-left:6px; vertical-align:middle; }
+  .log-entry-top{ display:flex; justify-content:space-between; gap:8px; }
+  .log-entry-user{ font-weight:700; color:var(--text); }
+  .log-entry-time{ color:var(--text-faint); font-family:'JetBrains Mono',monospace; font-size:11px; }
+  .log-entry-detail{ color:var(--text-dim); margin-top:3px; }
+  .acct-panel{ border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(20,22,27,0.04); }
+  .acct-panel-title{ font-size:12px; font-weight:700; margin-bottom:10px; }
+  .acct-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .acct-row:last-child{ border-bottom:none; }
+  .acct-name{ font-weight:600; }
+  .locked-note{ font-size:11.5px; color:var(--text-faint); font-style:italic; }
+  .cat-tag{ display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--text-dim); }
+  .cat-dot{ width:7px; height:7px; border-radius:2px; flex-shrink:0; display:inline-block; }
+
+  .status-badge{ font-size:11px; font-weight:700; padding:5px 10px; border-radius:12px; display:inline-block; white-space:nowrap; }
+  .status-pending{ background:rgba(147,151,159,0.14); color:var(--text-dim); }
+  .status-warn{ background:rgba(224,168,40,0.16); color:#95720C; }
+  .status-bad{ background:rgba(217,59,62,0.14); color:var(--bad); }
+  .status-good{ background:rgba(47,158,91,0.14); color:var(--good); }
+
+  .btn-detail{ font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:var(--radius); border:1px solid var(--line); background:var(--panel-2); color:var(--text-dim); cursor:pointer; white-space:nowrap; }
+  .btn-detail:hover{ border-color:var(--copper); color:var(--text); }
+
+  .empty{ text-align:center; padding:60px 20px; color:var(--text-faint); }
+  .empty .disp{ font-size:15px; color:var(--text-dim); margin-bottom:6px; }
+
+  /* ---- inventory view ---- */
+  .inv-summary{ font-size:15px; font-weight:700; color:#000; margin:2px 0 20px; }
+  .inv-summary .mono{ color:var(--copper); font-size:18px; }
+
+  /* ---- stats / dashboard view ---- */
+  .chart-panel{ border:1px solid var(--line); border-radius:6px; padding:18px 20px; background:var(--panel-2); margin-bottom:16px; box-shadow:0 1px 2px rgba(20,22,27,0.04); }
+  .chart-panel-title{ font-size:11.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:16px; }
+  .chart-row{ display:flex; gap:16px; align-items:stretch; margin-bottom:16px; }
+  .chart-row .chart-panel{ flex:1; margin-bottom:0; min-width:0; }
+  .bar-empty-note, .pie-empty-note{ font-size:12px; color:var(--text-faint); text-align:center; padding:30px 0; }
+  .pie-wrap{ display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+  .pie-legend{ flex:1; min-width:150px; display:flex; flex-direction:column; gap:8px; }
+  .pie-legend-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; }
+  .pie-dot{ width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+  .pie-legend-name{ flex:1; color:var(--text-dim); font-weight:500; }
+  .pie-legend-val{ font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--text); }
+  .ret-big{ text-align:center; padding:14px 0 6px; }
+  .ret-big-num{ font-family:'Space Grotesk',sans-serif; font-size:40px; font-weight:700; color:var(--copper); }
+  .ret-big-label{ font-size:11.5px; color:var(--text-faint); margin-top:4px; }
+  .ret-sub{ display:flex; justify-content:center; gap:18px; margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+  .ret-sub-item{ text-align:center; }
+  .ret-sub-val{ font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; color:var(--text); }
+  .ret-sub-label{ font-size:10px; color:var(--text-faint); margin-top:2px; text-transform:uppercase; letter-spacing:0.4px; }
+  .usage-ratio{ margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+  .usage-bar{ height:10px; border-radius:6px; overflow:hidden; display:flex; background:var(--panel); }
+  .top-list{ display:flex; flex-direction:column; gap:10px; padding:4px 2px; }
+  .top-row{ display:flex; align-items:center; gap:10px; }
+  .top-rank{ width:20px; flex-shrink:0; font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--text-faint); font-size:12px; text-align:center; }
+  .top-name{ width:190px; flex-shrink:0; font-size:12.5px; font-weight:500; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .top-bar-wrap{ flex:1; height:8px; background:var(--panel); border-radius:5px; overflow:hidden; }
+  .top-bar{ height:100%; background:var(--copper); border-radius:5px; transition:width 0.3s ease; }
+  .top-count{ width:48px; flex-shrink:0; text-align:right; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--text); }
+  .usage-bar-used{ background:var(--good); }
+  .usage-bar-unused{ background:var(--warn); }
+  .usage-legend{ display:flex; justify-content:space-between; margin-top:8px; font-size:11.5px; color:var(--text-dim); }
+  .usage-legend b{ color:var(--text); }
+  .usage-empty{ font-size:11.5px; color:var(--text-faint); text-align:center; margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+
+  .overlay{ position:fixed; inset:0; background:rgba(20,22,27,0.6); display:none; align-items:center; justify-content:center; z-index:50; }
+  .overlay.show{ display:flex; }
+  .modal{ background:var(--panel-2); border:1px solid var(--line); border-radius:6px; width:480px; max-width:92vw; padding:22px; box-shadow:0 20px 50px rgba(20,22,27,0.18); max-height:88vh; overflow-y:auto; }
+  .modal h3{ margin:0 0 16px; font-size:15px; font-family:'Space Grotesk',sans-serif; }
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:11px; color:var(--text-faint); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.4px; }
+  .field label .req{ color:var(--bad); }
+  .field input, .field textarea, .field select{ width:100%; background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:8px 10px; color:var(--text); font-size:13px; font-family:'Inter',sans-serif; }
+  .field input:disabled, .field textarea:disabled, .field select:disabled{ background:#555b66; border-color:#555b66; color:#fff; opacity:1; cursor:not-allowed; -webkit-text-fill-color:#fff; }
+  .field textarea{ resize:vertical; min-height:48px; font-family:'Inter',sans-serif; }
+  .field input:focus, .field textarea:focus, .field select:focus{ outline:none; border-color:var(--copper); }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  .field-hint{ font-size:11px; color:var(--text-faint); margin-top:-8px; margin-bottom:12px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+  .modal-actions-split{ display:flex; justify-content:space-between; gap:8px; margin-top:18px; }
+  .section-div{ font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.6px; margin:16px 0 10px; padding-top:12px; border-top:1px dashed var(--line); }
+  .section-div:first-of-type{ margin-top:0; padding-top:0; border-top:none; }
+
+  #ps_fileInput{ display:none; }
+  .footer-note{ padding:10px 24px; font-size:11px; color:var(--text-faint); border-top:1px solid var(--line); }
+
+  @media (max-width:760px){
+    nav.rail{ display:none; }
+    table{ min-width:900px; }
+    .body{ overflow-x:auto; }
+    .chart-row{ flex-direction:column; }
+    .req-row{ grid-template-columns:1fr; }
+    .req-row-edit{ grid-template-columns:1fr; }
+    .proc-row{ grid-template-columns:1fr; }
+    .proc-row-2{ grid-template-columns:1fr; }
+
+    header{ flex-wrap:wrap; padding:10px 14px; gap:8px; row-gap:8px; }
+    .brand-sub{ display:none; }
+    .header-actions{ flex-wrap:wrap; gap:6px; width:100%; justify-content:flex-start; }
+    .header-actions .btn{ font-size:11.5px; padding:6px 9px; }
+    .user-badge{ font-size:12px; }
+    .save-status{ font-size:10.5px; }
+
+    .tabbar-scroll{ -webkit-overflow-scrolling:touch; }
+    .tab-pinned{ font-size:12.5px; padding:9px 12px; white-space:nowrap; }
+
+    .main-head{ flex-direction:column; align-items:stretch; gap:10px; }
+    .main-title.disp{ font-size:16px; flex-wrap:wrap; gap:6px; }
+    .filters{ width:100%; }
+    .filters .search{ width:100%; }
+
+    .modal{ width:94vw; padding:16px; max-height:92vh; }
+    .field-row{ flex-direction:column; gap:0; }
+    .direct-ship-row{ flex-direction:column; align-items:stretch; gap:10px; }
+    .direct-ship-row .field{ max-width:none; }
+
+    .chart-panel{ padding:14px; }
+    .top-name{ width:110px; }
+
+    .rail{ display:none; }
+    .slot-code{ display:none; }
+  }
+
+  @media (max-width:480px){
+    .auth-box{ width:92vw; padding:24px 18px; }
+    .header-actions .btn span.btn-label-full{ display:none; }
+    .ret-sub{ flex-wrap:wrap; gap:10px; }
+    .top-name{ width:80px; font-size:11.5px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div class="auth-page" id="ps_loginPage">
+  <div class="auth-box">
+    <div class="auth-brand">
+      <svg class="brand-mascot" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 30 C6 22, 10 12, 18 9 C20 8, 22 9, 21 11 C26 9, 33 12, 35 19 C40 20, 42 25, 39 29 C41 31, 40 35, 36 35 L34 35 C34 38, 31 40, 28 39 C26 41, 22 41, 20 39 C15 40, 9 37, 8 30 Z" fill="var(--copper)" opacity="0.9"/>
+        <circle cx="30" cy="18" r="1.6" fill="#fff"/>
+        <path d="M35 19 L40 16 L38 21 Z" fill="var(--copper-bright)"/>
+        <path d="M18 9 L14 4 L20 7 Z" fill="var(--copper-bright)"/>
+        <path d="M21 11 L26 6 L25 12 Z" fill="var(--copper-bright)"/>
+      </svg>
+      <div class="auth-brand-title disp">MSI</div>
+    </div>
+    <h3 class="disp">로그인</h3>
+    <div class="field"><label>아이디</label><input id="ps_login_username" placeholder="아이디" /></div>
+    <div class="field"><label>비밀번호</label><input id="ps_login_password" type="password" placeholder="비밀번호" /></div>
+    <div class="auth-error" id="ps_loginError"></div>
+    <button class="btn primary" id="ps_loginBtn" style="width:100%; justify-content:center;">로그인</button>
+    <div class="auth-switch">계정이 없으신가요? <a id="ps_goSignupLink">담당자 회원가입</a></div>
+  </div>
+</div>
+
+<!-- 회원가입 화면 (담당자 전용) -->
+<div class="auth-page" id="ps_signupPage" style="display:none;">
+  <div class="auth-box">
+    <h3 class="disp">담당자 회원가입</h3>
+    <div style="font-size:12px; color:var(--text-faint); margin:-8px 0 14px;">가입 신청 후 관리자 승인이 완료되면 로그인할 수 있어요.</div>
+    <div class="field"><label>아이디 (본인 이름)</label><input id="ps_signup_username" placeholder="예: 홍길동" /></div>
+    <div class="field"><label>비밀번호</label><input id="ps_signup_password" type="password" placeholder="비밀번호" /></div>
+    <div class="field"><label>비밀번호 확인</label><input id="ps_signup_password2" type="password" placeholder="비밀번호 확인" /></div>
+    <div class="auth-error" id="ps_signupError"></div>
+    <button class="btn primary" id="ps_signupBtn" style="width:100%; justify-content:center;">가입 신청하기</button>
+    <div class="auth-switch"><a id="ps_goLoginLink">처음 화면으로</a></div>
+  </div>
+</div>
+
+<!-- 가입 신청 완료 안내 팝업 -->
+<div class="overlay" id="ps_signupDoneOverlay" style="z-index:310;">
+  <div class="modal" style="width:340px; text-align:center;">
+    <h3 class="disp">가입 신청 완료</h3>
+    <div class="auth-success" style="text-align:left;">가입 신청이 접수됐어요.<br>관리자 승인이 완료되면 바로 로그인할 수 있어요. 잠시만 기다려주세요 🙂</div>
+    <button class="btn primary" id="ps_signupDoneOkBtn" style="width:100%; justify-content:center;">확인</button>
+  </div>
+</div>
+
+<!-- 비밀번호 직접 변경 (담당자 본인) -->
+<div class="overlay" id="ps_changePwOverlay">
+  <div class="modal" style="width:360px;">
+    <h3 class="disp">비밀번호 변경</h3>
+    <div class="field"><label>현재 비밀번호</label><input id="ps_cpw_current" type="password" placeholder="현재 비밀번호" /></div>
+    <div class="field"><label>새 비밀번호</label><input id="ps_cpw_new" type="password" placeholder="새 비밀번호" /></div>
+    <div class="field"><label>새 비밀번호 확인</label><input id="ps_cpw_new2" type="password" placeholder="새 비밀번호 확인" /></div>
+    <div class="auth-error" id="ps_cpwError"></div>
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button class="btn ghost" id="ps_cpwCancelBtn" style="flex:1; justify-content:center;">취소</button>
+      <button class="btn primary" id="ps_cpwConfirmBtn" style="flex:1; justify-content:center;">확인</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 초기 비밀번호(1234) 로그인 시 변경 안내 -->
+<div class="auth-page" id="ps_pwPromptPage" style="display:none;">
+  <div class="auth-box">
+    <h3 class="disp">비밀번호를 변경하시겠습니까?</h3>
+    <div class="auth-hint">기본 비밀번호(1234)로 로그인했어요. 보안을 위해 새 비밀번호로 바꾸는 걸 권장해요.</div>
+    <div class="field"><label>새 비밀번호</label><input id="ps_pw_new" type="password" placeholder="새 비밀번호" /></div>
+    <div class="field"><label>새 비밀번호 확인</label><input id="ps_pw_new2" type="password" placeholder="새 비밀번호 확인" /></div>
+    <div class="auth-error" id="ps_pwError"></div>
+    <button class="btn primary" id="ps_pwChangeBtn" style="width:100%; justify-content:center;">변경하기</button>
+    <button class="btn ghost" id="ps_pwSkipBtn" style="width:100%; justify-content:center; margin-top:8px;">나중에 하기</button>
+  </div>
+</div>
+
+<div class="auth-page" id="ps_idMigratePage" style="display:none;">
+  <div class="auth-box">
+    <h3 class="disp">아이디 설정이 필요해요</h3>
+    <div class="auth-hint">지금까지는 이름으로 로그인하셨어요. 앞으로는 직접 정하는 아이디로 로그인하도록 바뀌어요. 새 아이디를 한 번만 설정해주세요.</div>
+    <div class="field"><label>새 아이디</label><input id="ps_mig_id" placeholder="예: A1234" /></div>
+    <div class="field"><label>새 아이디 확인</label><input id="ps_mig_id2" placeholder="새 아이디 다시 입력" /></div>
+    <div class="field"><label>현재 비밀번호</label><input id="ps_mig_pw" type="password" placeholder="본인 확인을 위해 현재 비밀번호를 입력하세요" /></div>
+    <div class="auth-error" id="ps_migError"></div>
+    <button class="btn primary" id="ps_migConfirmBtn" style="width:100%; justify-content:center;">설정 완료</button>
+  </div>
+</div>
+
+<div class="auth-page" id="ps_namePromptPage" style="display:none;">
+  <div class="auth-box">
+    <h3 class="disp">담당자명을 입력해주세요</h3>
+    <div class="auth-hint">화면 왼쪽 위에만 표시되는 이름이에요. 이 이름은 서버에 저장되지 않고 지금 이 컴퓨터(브라우저)에만 남아요. 다른 컴퓨터에서 로그인하면 다시 입력해야 해요.</div>
+    <div class="field"><label>담당자명</label><input id="ps_name_input" placeholder="예: 김민준" /></div>
+    <div class="auth-error" id="ps_nameError"></div>
+    <button class="btn primary" id="ps_nameConfirmBtn" style="width:100%; justify-content:center;">확인</button>
+  </div>
+</div>
+
+<div id="ps_app" style="display:none;">
+  <header>
+    <div class="brand" id="ps_brandHome" style="cursor:pointer;" title="MSI 선출고 재고로 이동">
+      <svg class="brand-mascot" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 30 C6 22, 10 12, 18 9 C20 8, 22 9, 21 11 C26 9, 33 12, 35 19 C40 20, 42 25, 39 29 C41 31, 40 35, 36 35 L34 35 C34 38, 31 40, 28 39 C26 41, 22 41, 20 39 C15 40, 9 37, 8 30 Z" fill="var(--copper)" opacity="0.9"/>
+        <circle cx="30" cy="18" r="1.6" fill="#fff"/>
+        <path d="M35 19 L40 16 L38 21 Z" fill="var(--copper-bright)"/>
+        <path d="M18 9 L14 4 L20 7 Z" fill="var(--copper-bright)"/>
+        <path d="M21 11 L26 6 L25 12 Z" fill="var(--copper-bright)"/>
+      </svg>
+      <div>
+        <div class="brand-title disp">MSI</div>
+        <div class="brand-sub">자재 선출고 관리</div>
+      </div>
+      <button class="btn ghost" id="ps_inboxBtn" style="margin-left:14px;">📩 문자함<span class="inbox-badge" id="ps_inboxBadge" style="display:none;">0</span></button>
+    </div>
+    <div class="header-actions">
+      <div class="user-badge" id="ps_userBadge"></div>
+      <div class="save-status"><span class="save-dot" id="ps_saveDot"></span><span id="ps_saveText">저장됨</span></div>
+      <button class="btn ghost" id="ps_refreshBtn" title="다른 사람이 입력한 최신 내용을 지금 바로 가져옵니다">🔄 새로고침</button>
+      <button class="btn ghost" id="ps_exportBtn">⬇ 백업 다운로드</button>
+      <button class="btn ghost" id="ps_importBtn">⬆ 백업 불러오기</button>
+      <input type="file" id="ps_fileInput" accept="application/json" />
+      <button class="btn ghost" id="ps_changePwBtn">🔑 비밀번호 변경</button>
+      <button class="btn ghost" id="ps_logoutBtn">로그아웃</button>
+      <button class="btn home" id="ps_logBtn">🗂 로그</button>
+    </div>
+  </header>
+
+  <div class="log-page" id="ps_inboxPage">
+    <div class="log-page-header">
+      <div class="log-page-title disp">문자함</div>
+      <button class="log-page-close" id="ps_inboxCloseBtn">✕</button>
+    </div>
+    <div class="log-page-body">
+      <div id="ps_inboxList" style="max-width:640px;"></div>
+    </div>
+  </div>
+
+  <div class="log-page" id="ps_logPage">
+    <div class="log-page-header">
+      <div class="log-page-title disp">관리자 · 로그</div>
+      <button class="log-page-close" id="ps_logCloseBtn">✕</button>
+    </div>
+    <div class="log-page-body">
+      <div class="log-split">
+        <div class="log-col">
+          <div class="log-col-title">활동 로그</div>
+          <div id="ps_logList" style="overflow-y:auto; flex:1; border:1px solid var(--line); border-radius:6px;"></div>
+        </div>
+        <div class="log-col">
+          <div class="log-col-title">계정 관리</div>
+          <div id="ps_acctPanel"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <button class="tab-pinned" id="ps_inventoryTab">MSI 선출고 재고</button>
+    <button class="tab-pinned pinned-last" id="ps_overviewTab">MSI 선출고 현황</button>
+    <button class="tab-pinned pinned-last muted" id="ps_statsTab">MIK 선출고 물동량</button>
+    <div class="tabbar-scroll" id="ps_tabbar"></div>
+  </div>
+
+  <div class="stats" id="ps_statsBar">
+    <div class="stat stat-big"><div class="stat-label">전체 누적 선출고 건수</div><div class="stat-value" id="ps_statTotal">0</div></div>
+    <div class="stat"><div class="stat-label">선출고중</div><div class="stat-value" id="ps_statShipped">0</div></div>
+    <div class="stat"><div class="stat-label">선출고대기중</div><div class="stat-value" id="ps_statPending">0</div></div>
+  </div>
+
+  <div class="body" id="ps_bodyWrap">
+    <nav class="rail" id="ps_rail">
+      <div class="slot slot-intake" id="ps_railAddBtn"><span class="slot-pin">+</span><span class="slot-name">선출고 등록</span></div>
+      <div class="rail-divider"></div>
+      <div class="rail-label">상태</div>
+      <div class="slot active" data-status="ALL"><span class="slot-pin"></span><span class="slot-name">전체보기</span><span class="slot-code mono" id="ps_cntALL">0</span></div>
+      <div class="slot" data-status="PENDING"><span class="slot-pin"></span><span class="slot-name">선출고대기중</span><span class="slot-code mono" id="ps_cntPENDING">0</span></div>
+      <div class="slot" data-status="SHIPPED"><span class="slot-pin"></span><span class="slot-name">선출고중</span><span class="slot-code mono" id="ps_cntSHIPPED">0</span></div>
+      <div class="slot" data-status="DONE"><span class="slot-pin"></span><span class="slot-name">회수완료</span><span class="slot-code mono" id="ps_cntDONE">0</span></div>
+      <div class="rail-spacer"></div>
+    </nav>
+
+    <nav class="rail" id="ps_categoryRail" style="display:none;">
+      <div class="slot slot-intake" id="ps_overviewAddBtn"><span class="slot-pin">+</span><span class="slot-name">선출고 등록</span></div>
+      <div class="rail-divider"></div>
+      <div class="rail-label">카테고리</div>
+      <div id="ps_categorySlots"></div>
+      <div class="rail-spacer"></div>
+    </nav>
+
+    <nav class="rail" id="ps_invCategoryRail" style="display:none;">
+      <div class="rail-label">구분</div>
+      <div id="ps_invCategorySlots"></div>
+      <div class="rail-spacer"></div>
+    </nav>
+
+    <main id="ps_monthMain">
+      <div class="main-head">
+        <div class="main-title disp">
+          <span id="ps_statusName">전체보기</span> <span class="code" id="ps_statusCode">ALL</span>
+        </div>
+        <div class="filters">
+          <input class="search" id="ps_searchInput" placeholder="접수번호 / 업체명 / 고객명 / 전화번호 / 제품명 검색..." />
+        </div>
+      </div>
+      <div id="ps_tableWrap"></div>
+    </main>
+
+    <main id="ps_inventoryMain" style="display:none; width:100%;">
+      <div class="main-head">
+        <div class="main-title disp">MSI 선출고 재고</div>
+        <button class="btn primary" id="ps_invAddBtn">+ 자재 등록</button>
+      </div>
+      <div class="inv-summary">선출고 가능 자재 수량 <span class="mono" id="ps_invAvailableTotal">0개</span></div>
+      <div id="ps_inventoryList"></div>
+    </main>
+
+    <main id="ps_statsMain" style="display:none; width:100%;">
+      <div class="main-head">
+        <div class="main-title disp">MIK 선출고 물동량</div>
+        <div class="filters">
+          <select class="filter-select" id="ps_statsYear"></select>
+          <button class="btn ghost" id="ps_statsExportBtn">⬇ 엑셀 다운로드</button>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-panel">
+          <div class="chart-panel-title">월별 선출고 수량</div>
+          <div id="ps_barChart"></div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-panel-title">회수까지 걸리는 평균 시간</div>
+          <div id="ps_returnStats"></div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-panel">
+          <div class="chart-panel-title">카테고리별 출고 비율</div>
+          <div id="ps_pieChart"></div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-panel-title">교체완료 / 미사용 회수 비율</div>
+          <div id="ps_usagePie"></div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-panel" style="flex:1;">
+          <div class="chart-panel-title">업체별 선출고 건수 TOP 5</div>
+          <div id="ps_topCustomers"></div>
+        </div>
+      </div>
+    </main>
+
+    <main id="ps_overviewMain" style="display:none; width:100%;">
+      <div class="main-head">
+        <div class="main-title disp">
+          <span id="ps_overviewCatName">전체보기</span>
+          <select id="ps_overviewStatusFilter" style="margin-left:10px; font-size:13px; font-weight:400; padding:5px 8px; border:1px solid var(--line); border-radius:var(--radius); background:#fff;"></select>
+        </div>
+        <div class="filters">
+          <input class="search" id="ps_overviewSearchInput" placeholder="자재명 / 모델명 / 시리얼 / 송장번호 / 업체명 / 고객명 검색..." />
+        </div>
+      </div>
+      <div id="ps_overviewTableWrap"></div>
+      <div id="ps_overviewPager" style="display:flex; align-items:center; justify-content:center; gap:14px; padding:14px 0;"></div>
+    </main>
+  </div>
+
+  <div class="footer-note">데이터는 이 브라우저에 자동 저장됩니다(<span class="mono">preship-v1</span>). 다른 기기로 옮기거나 백업하려면 상단의 <b style="color:var(--text-dim)">백업 다운로드</b>를 눌러 JSON 파일로 보관하세요.</div>
+</div>
+
+<!-- 선출고 요청 등록 모달 (담당자용 - 최소 항목) -->
+<div class="overlay" id="ps_requestOverlay">
+  <div class="modal" style="width:1200px; max-width:96vw;">
+    <h3 class="disp">선출고 요청 등록</h3>
+    <div class="field receipt-preview">접수번호 <span class="mono" id="ps_r_receiptPreview">-</span></div>
+    <div class="req-row">
+      <div class="field"><label>업체명 (배송 정보) <span class="req">*</span></label><input id="ps_r_customerName" placeholder="예: (주)에어플로우" /></div>
+      <div class="field"><label>고객명 (실 고객명) <span class="req">*</span></label><input id="ps_r_clientName" placeholder="예: 김민준" /></div>
+      <div class="field"><label>전화번호 (배송 정보) <span class="req">*</span></label><input id="ps_r_phone" placeholder="예: 010-1234-5678" /></div>
+      <div class="field"><label>주소 (배송 정보) <span class="req">*</span></label><input id="ps_r_address" placeholder="예: 서울시 ..." /></div>
+      <div class="field"><label>제품명 <span class="req">*</span></label><input id="ps_r_material" placeholder="예: SSD 512GB" /></div>
+      <div class="field"><label>카테고리 <span class="req">*</span></label>
+        <select id="ps_r_category">
+          <option value="" disabled selected>선택</option>
+          <option value="메인보드">메인보드</option>
+          <option value="그래픽카드">그래픽카드</option>
+          <option value="SSD">SSD</option>
+          <option value="파워">파워</option>
+          <option value="쿨러">쿨러</option>
+          <option value="케이스">케이스</option>
+          <option value="케이스 부자재">케이스 부자재</option>
+        </select>
+      </div>
+      <div class="field"><label>불량증상</label><input id="ps_r_symptom" placeholder="예: 부팅 불가 (선택 입력)" /></div>
+      <div class="field"><label>출고 요청일 <span class="req">*</span></label><input id="ps_r_requestDate" type="date" /></div>
+    </div>
+    <div class="direct-ship-row">
+      <div class="field"><label>출고 방법 <span class="req">*</span></label>
+        <select id="ps_r_shipMethod">
+          <option value="" disabled selected>선택</option>
+          <option value="택배출고">택배출고</option>
+          <option value="담당자 직출고">담당자 직출고</option>
+          <option value="퀵출고">퀵출고</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="ps_requestCancelBtn">취소</button>
+      <button class="btn primary" id="ps_requestSaveBtn">요청 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 선출고 처리 모달 (담당자가 등록한 요청을 "수정"으로 열어서 처리) -->
+<div class="overlay" id="ps_overlay">
+  <div class="modal" style="width:960px; max-width:95vw;">
+    <h3 class="disp" id="ps_modalTitle">선출고 처리</h3>
+
+    <div class="section-div">요청 정보</div>
+    <div class="field receipt-preview">접수번호 <span class="mono" id="ps_f_receiptView">-</span></div>
+    <div class="req-row-edit">
+      <div class="field"><label>업체명 (배송 정보)</label><input id="ps_f_customerName" /></div>
+      <div class="field"><label>전화번호 (배송 정보)</label><input id="ps_f_phone" /></div>
+      <div class="field"><label>주소 (배송 정보)</label><input id="ps_f_address" /></div>
+      <div class="field"><label>제품명 <span class="req">*</span></label><input id="ps_f_material" placeholder="예: SSD 512GB" /></div>
+      <div class="field"><label>불량증상</label><input id="ps_f_symptom" placeholder="예: 부팅 불가, 인식 오류" /></div>
+    </div>
+    <div class="direct-ship-row">
+      <div class="field"><label>출고 방법 <span class="req">*</span></label>
+        <select id="ps_f_shipMethod">
+          <option value="" disabled selected>선택</option>
+          <option value="택배출고">택배출고</option>
+          <option value="담당자 직출고">담당자 직출고</option>
+          <option value="퀵출고">퀵출고</option>
+        </select>
+      </div>
+      <div id="ps_f_shipConfirmWrap" style="display:none;"></div>
+    </div>
+
+    <div class="section-div">자재 정보</div>
+    <div class="field-row">
+      <div class="field" style="max-width:260px;"><label>카테고리</label>
+        <select id="ps_f_category">
+          <option value="메인보드">메인보드</option>
+          <option value="그래픽카드">그래픽카드</option>
+          <option value="SSD">SSD</option>
+          <option value="파워">파워</option>
+          <option value="쿨러">쿨러</option>
+          <option value="케이스">케이스</option>
+          <option value="케이스 부자재">케이스 부자재</option>
+        </select>
+      </div>
+      <div class="field" style="max-width:220px;"><label>출고 요청일</label><input id="ps_f_requestDate" type="date" /></div>
+    </div>
+
+    <div class="section-div">출고 정보 (선출고 진행)</div>
+    <div class="proc-row">
+      <div class="field"><label>출고 자재명</label><input id="ps_f_shipMaterial" placeholder="미입력 시 제품명과 동일" /></div>
+      <div class="field"><label>모델명</label><input id="ps_f_model" placeholder="예: MZ-V8P512" /></div>
+      <div class="field"><label>선출고 시리얼(910)</label><input id="ps_f_serial910" /></div>
+      <div class="field"><label>출고일</label><input id="ps_f_shipDate" type="date" /></div>
+      <div class="field"><label>출고 송장번호</label><input id="ps_f_shipInvoice" /></div>
+    </div>
+
+    <div class="section-div">회수 정보</div>
+    <div class="proc-row">
+      <div class="field" id="ps_f_returnMaterialField"><label>회수 자재명</label><input id="ps_f_returnMaterial" placeholder="미입력 시 제품명과 동일" /></div>
+      <div class="field" id="ps_f_model2Field"><label>모델명</label><input id="ps_f_model2" placeholder="예: MZ-V8P512" /></div>
+      <div class="field" id="ps_f_customerSerialField"><label>고객 회수 시리얼</label><input id="ps_f_customerSerial" /></div>
+      <div class="field" id="ps_f_returnUsageField" style="display:none; max-width:260px;">
+        <label>사용 여부 (시리얼 확인 불가 자재)</label>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn toggle-btn" id="ps_f_returnUsedBtn" style="flex:1; justify-content:center;">사용회수</button>
+          <button type="button" class="btn toggle-btn" id="ps_f_returnUnusedBtn" style="flex:1; justify-content:center;">미사용 회수</button>
+        </div>
+      </div>
+      <div class="field"><label>회수일</label><input id="ps_f_returnDate" type="date" /></div>
+      <div class="field"><label>회수 송장번호</label><input id="ps_f_returnInvoice" /></div>
+    </div>
+
+    <div class="section-div">고객명</div>
+    <div class="field"><label>고객명 (실 고객명) <span id="ps_f_clientNameHint" style="font-weight:400; color:var(--text-faint); font-size:12px;"></span></label><input id="ps_f_clientName" placeholder="예: 김민준" /></div>
+
+    <div class="modal-actions-split">
+      <button class="btn ghost" id="ps_deleteBtn" style="display:none; color:var(--bad); border-color:var(--line);">삭제</button>
+      <div class="modal-actions" style="margin:0;">
+        <button class="btn ghost" id="ps_cancelBtn">취소</button>
+        <button class="btn primary" id="ps_saveBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 재고 자재 등록/수정 모달 -->
+<div class="overlay" id="ps_invOverlay">
+  <div class="modal" style="width:380px;">
+    <h3 class="disp" id="ps_invModalTitle">자재 등록</h3>
+    <div class="field"><label>구분 <span class="req">*</span></label>
+      <select id="ps_inv_category">
+        <option value="" disabled selected>구분 선택</option>
+        <option value="메인보드">메인보드</option>
+        <option value="그래픽카드">그래픽카드</option>
+        <option value="SSD">SSD</option>
+        <option value="파워">파워</option>
+        <option value="쿨러">쿨러</option>
+        <option value="케이스">케이스</option>
+        <option value="케이스 부자재">케이스 부자재</option>
+      </select>
+    </div>
+    <div class="field"><label>자재명 <span class="req">*</span></label><input id="ps_inv_material" placeholder="예: SSD 512GB" /></div>
+    <div class="field"><label>보유수량 <span class="req">*</span></label><input id="ps_inv_qty" type="number" min="0" placeholder="예: 5" /></div>
+    <div class="field"><label>선출고 진행중 수량</label><input id="ps_inv_inUse" type="number" min="0" placeholder="예: 1" /></div>
+    <div class="field-hint">보유수량에서 이 수량만큼 자동으로 빠져서 &quot;가능수량&quot;에 반영돼요.</div>
+    <div class="modal-actions-split">
+      <button class="btn ghost" id="ps_invDeleteBtn" style="display:none; color:var(--bad); border-color:var(--line);">삭제</button>
+      <div class="modal-actions" style="margin:0;">
+        <button class="btn ghost" id="ps_invCancelBtn">취소</button>
+        <button class="btn primary" id="ps_invSaveBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CJ대한통운 배송 조회 플라이아웃 -->
+<div class="track-flyout" id="ps_trackFlyout">
+  <button class="track-flyout-close" id="ps_trackCloseBtn">✕</button>
+  <div class="track-flyout-title">배송 조회</div>
+  <div class="track-flyout-invoice">송장번호 <span class="mono" id="ps_track_invoice">-</span></div>
+
+  <div class="track-stepper" id="ps_track_stepper"></div>
+  <div class="track-hint">* 출고일 기준 예상 진행 단계예요.<br/>실제 배송 단계와 다를 수 있어요.</div>
+
+  <a id="ps_track_link" class="track-flyout-link" target="_blank" rel="noopener">CJ대한통운에서 실시간 조회 →</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const STORE_KEY = 'preship-v1';
+const OVERDUE_DAYS = 14;
+const STATUS_LABEL = { ALL:'전체보기', SHIPPED:'선출고중', PENDING:'선출고대기중', DONE:'회수완료' };
+const CATEGORIES = ['메인보드','그래픽카드','SSD','파워','쿨러','케이스','케이스 부자재'];
+const CATEGORY_COLORS = { '메인보드':'#B5723F','그래픽카드':'#3E6E96','SSD':'#1E8FA6','파워':'#2F9E5B','쿨러':'#E0A828','케이스':'#D93B3E','케이스 부자재':'#8B5FBF','미분류':'#93979F' };
+
+let data = { months: {}, inventory: [], accounts: [], activityLog: [], signupRequests: [] };
+let currentView = 'month'; // 'month' | 'inventory' | 'stats' | 'overview'
+let currentMonth = null;
+let activeStatus = 'ALL';
+let activeCategory = 'ALL';
+let activeInvCategory = 'ALL';
+let searchTerm = '';
+let overviewSearchTerm = '';
+let editingId = null;
+let editingMonth = null;
+let editingInvId = null;
+let statsYear = null;
+let monthSort = { key:null, dir:'asc' };
+let overviewSort = { key:null, dir:'asc' };
+let overviewStatusFilter = 'ALL';
+let overviewPage = 1;
+const OVERVIEW_PAGE_SIZE = 12;
+const OVERVIEW_STATUS_LABEL = { ALL:'전체', PENDING:'선출고대기중', SHIPPED:'선출고중', DONE_USED:'회수완료(사용)', DONE_UNUSED:'회수완료(미사용)' };
+let invSort = { key:null, dir:'asc' };
+let currentUser = null; // { username, role }
+
+const SESSION_KEY = 'preship-session-v1';
+const ROLE_LABEL = { root:'관리자', mid:'부관리자', operator:'운영자', staff:'담당자' };
+
+const $ = (id) => document.getElementById(id);
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function todayStr(){ const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function defaultMonthKey(){ const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1); }
+function monthLabel(key){
+  if(/^\d{4}$/.test(key)) return key; // 병합된 연도 데이터
+  const [y,m] = key.split('-'); return y+'.'+m;
+}
+function uid(){ return 'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function daysBetween(a,b){
+  const d1 = new Date(a+'T00:00:00'), d2 = new Date(b+'T00:00:00');
+  return Math.round((d2-d1)/86400000);
+}
+function normalizeCategory(row){
+  return (row.category && CATEGORIES.includes(row.category)) ? row.category : '미분류';
+}
+
+/* ---------- 접수번호 ---------- */
+function generateReceiptNumber(){
+  const now = new Date();
+  const compact = now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate());
+  let count = 0;
+  Object.values(data.months).forEach(rows=>{
+    rows.forEach(r=>{ if(r.receiptNumber && r.receiptNumber.indexOf(compact+'-')===0) count++; });
+  });
+  return compact+'-'+String(count+1).padStart(2,'0');
+}
+function migrateReceiptNumbers(){
+  const counters = {};
+  let changed = false;
+  Object.keys(data.months).sort().forEach(mk=>{
+    (data.months[mk]||[]).forEach(row=>{
+      if(row.receiptNumber){
+        const parts = row.receiptNumber.split('-');
+        if(parts.length===2){
+          const n = parseInt(parts[1],10);
+          if(!isNaN(n)) counters[parts[0]] = Math.max(counters[parts[0]]||0, n);
+        }
+        return;
+      }
+      const baseDate = row.requestDate || row.shipDate || (mk+'-01');
+      const compact = baseDate.replace(/-/g,'');
+      counters[compact] = (counters[compact]||0) + 1;
+      row.receiptNumber = compact+'-'+String(counters[compact]).padStart(2,'0');
+      changed = true;
+    });
+  });
+  if(changed) saveData();
+}
+
+/* ---------- generic sort helpers ---------- */
+function compareValues(a,b){
+  a = (a===undefined||a===null) ? '' : a;
+  b = (b===undefined||b===null) ? '' : b;
+  if(typeof a === 'number' && typeof b === 'number') return a-b;
+  return String(a).localeCompare(String(b), 'ko', { numeric:true, sensitivity:'base' });
+}
+function applySort(rows, sortState, extractors){
+  if(!sortState.key || !extractors[sortState.key]) return rows;
+  const fn = extractors[sortState.key];
+  const sorted = rows.slice().sort((a,b)=> compareValues(fn(a), fn(b)) * (sortState.dir==='asc' ? 1 : -1));
+  return sorted;
+}
+function sortHeaderCell(label, key, sortState, extraClass){
+  const active = sortState.key===key;
+  const arrow = active ? (sortState.dir==='asc' ? '▲' : '▼') : '';
+  return '<th class="sortable'+(extraClass?' '+extraClass:'')+(active?' sort-active':'')+'" data-sort-key="'+key+'">'+label+(arrow?' <span class="sort-arrow">'+arrow+'</span>':'')+'</th>';
+}
+function bindSortableHeaders(wrap, sortState, onChange){
+  wrap.querySelectorAll('th[data-sort-key]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.sortKey;
+      if(sortState.key===key){ sortState.dir = sortState.dir==='asc' ? 'desc' : 'asc'; }
+      else{ sortState.key = key; sortState.dir = 'asc'; }
+      onChange();
+    });
+  });
+}
+
+/* ---------- storage (server, 인증 필요) ---------- */
+const TOKEN_KEY = 'preship-token-v1';
+let authToken = null;
+try{ authToken = localStorage.getItem(TOKEN_KEY); }catch(e){ authToken = null; }
+
+function saveToken(token){ authToken = token; try{ localStorage.setItem(TOKEN_KEY, token); }catch(e){} }
+function clearToken(){ authToken = null; try{ localStorage.removeItem(TOKEN_KEY); }catch(e){} }
+
+// 인증 헤더를 자동으로 붙여주는 fetch. 세션이 끊긴 경우(401) 로그인 화면으로 돌려보냄.
+async function authFetch(url, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers, authToken ? { 'Authorization': 'Bearer '+authToken } : {});
+  const res = await fetch(url, opts);
+  if(res.status === 401){
+    clearToken();
+    clearSession();
+    currentUser = null;
+    hideAuthPages();
+    $('ps_app').style.display = 'none';
+    showAuthPage('ps_loginPage');
+    $('ps_loginError').textContent = '세션이 만료되어 다시 로그인해주세요';
+  }
+  return res;
+}
+
+function normalizeData(raw){
+  data = raw && Object.keys(raw).length ? raw : data;
+  if(!data.months) data.months = {};
+  if(!data.inventory) data.inventory = [];
+  if(!data.accounts) data.accounts = [];
+  if(!data.activityLog) data.activityLog = [];
+  if(!data.notifications) data.notifications = [];
+  if(!data.signupRequests) data.signupRequests = [];
+  const keys = Object.keys(data.months);
+  if(keys.length===0) data.months[defaultMonthKey()] = [];
+  const freshKeys = Object.keys(data.months);
+  // 이미 특정 달을 보고 있던 중이면 그 달을 유지하고, 그 달이 사라진 경우에만 최신 달로 이동
+  if(!currentMonth || !freshKeys.includes(currentMonth)){
+    currentMonth = freshKeys.sort().pop() || defaultMonthKey();
+  }
+  migrateReceiptNumbers();
+}
+
+// 로그인 성공 직후 실제 업무 데이터를 불러옴
+async function loadDataAfterLogin(){
+  try{
+    const res = await authFetch('/api/data');
+    if(res.ok){
+      const raw = await res.json();
+      normalizeData(raw);
+    }
+  }catch(e){ normalizeData({}); }
+}
+
+let _saveTimer = null;
+let _saveSeq = 0;
+async function saveData(){
+  const dot = $('ps_saveDot'), txt = $('ps_saveText');
+  if(dot) dot.classList.add('saving');
+  if(txt) txt.textContent = '저장 중';
+  const mySeq = ++_saveSeq;
+  clearTimeout(_saveTimer);
+  return new Promise((resolve)=>{
+    _saveTimer = setTimeout(async ()=>{
+      try{
+        const res = await authFetch('/api/data', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify(data)
+        });
+        if(mySeq === _saveSeq){
+          if(res.ok){
+            if(dot) dot.classList.remove('saving');
+            if(txt) txt.textContent = '저장됨';
+          }else{
+            if(dot) dot.classList.remove('saving');
+            if(txt) txt.textContent = '저장 실패';
+          }
+        }
+      }catch(e){
+        if(mySeq === _saveSeq){
+          if(dot) dot.classList.remove('saving');
+          if(txt) txt.textContent = '저장 실패 (서버 연결 확인)';
+        }
+      }
+      resolve();
+    }, 250);
+  });
+}
+
+/* ---------- status ---------- */
+function computeStatus(row){
+  if(!row.shipDate) return { key:'PENDING', label:'선출고대기중', cls:'status-pending' };
+  if(!row.returnDate){
+    const d = Math.max(daysBetween(row.shipDate, todayStr()), 0);
+    if(d > OVERDUE_DAYS) return { key:'SHIPPED', label:d+'일', cls:'status-bad' };
+    return { key:'SHIPPED', label:d+'일', cls:'status-warn' };
+  }
+  const used = !!(row.customerSerial && row.customerSerial.trim());
+  return { key:'DONE', label: used ? '회수완료(사용)' : '회수완료(미사용)', cls:'status-good', used };
+}
+
+/* ---------- tabbar (최신 월이 왼쪽, 오래된 월이 오른쪽) ---------- */
+function renderTabbar(){
+  $('ps_inventoryTab').classList.toggle('active', currentView==='inventory');
+  $('ps_statsTab').classList.toggle('active', currentView==='stats');
+  $('ps_overviewTab').classList.toggle('active', currentView==='overview');
+
+  const bar = $('ps_tabbar');
+  bar.innerHTML = '';
+  Object.keys(data.months).sort().reverse().forEach(key=>{
+    const isYearMerged = /^\d{4}$/.test(key);
+    const tab = document.createElement('button');
+    tab.className = 'tab' + (currentView==='month' && key===currentMonth ? ' active' : '');
+    tab.textContent = isYearMerged ? (key+'년') : (monthLabel(key)+'월');
+    tab.addEventListener('click', ()=>{ currentView='month'; currentMonth=key; activeStatus='ALL'; searchTerm=''; $('ps_searchInput').value=''; render(); });
+    bar.appendChild(tab);
+  });
+  if(currentUser.role!=='staff'){
+    const addTab = document.createElement('button');
+    addTab.className = 'tab-add';
+    addTab.textContent = '+';
+    addTab.title = '월 추가';
+    addTab.addEventListener('click', addMonth);
+    bar.appendChild(addTab);
+
+    const mergeTab = document.createElement('button');
+    mergeTab.className = 'tab-merge';
+    mergeTab.textContent = '합치기';
+    mergeTab.title = '지난 연도 월별 데이터를 하나로 합치기';
+    mergeTab.addEventListener('click', handleMergeYearClick);
+    bar.appendChild(mergeTab);
+  }
+}
+
+function addMonth(){
+  if(currentUser.role==='staff'){ alert('월 추가는 관리자/부관리자/운영자만 가능해요.'); return; }
+  const input = prompt('추가할 월을 YYYY-MM 형식으로 입력하세요 (예: 2026-08)', defaultMonthKey());
+  if(!input) return;
+  const m = input.trim().match(/^(\d{4})-(\d{1,2})$/);
+  if(!m){ alert('형식이 올바르지 않아요. 예: 2026-08'); return; }
+  const key = m[1]+'-'+pad(parseInt(m[2],10));
+  if(!data.months[key]) data.months[key] = [];
+  currentView = 'month';
+  currentMonth = key;
+  saveData();
+  render();
+}
+
+/* ---------- 지난 연도 월별 데이터 하나로 합치기 ---------- */
+function getMergeCandidateYears(){
+  const thisYear = new Date().getFullYear();
+  const years = new Set();
+  Object.keys(data.months).forEach(k=>{
+    const m = k.match(/^(\d{4})-\d{2}$/);
+    if(m && parseInt(m[1],10) < thisYear) years.add(m[1]);
+  });
+  return Array.from(years).sort();
+}
+
+function mergeYearData(year){
+  const keys = Object.keys(data.months).filter(k=> new RegExp('^'+year+'-\\d{2}$').test(k));
+  if(keys.length===0) return 0;
+  let merged = [];
+  keys.forEach(k=>{ merged = merged.concat(data.months[k]||[]); });
+  merged.sort((a,b)=>{
+    const ad = a.shipDate || '', bd = b.shipDate || '';
+    if(ad && bd) return bd.localeCompare(ad); // 둘 다 출고됨 - 최신 출고일이 위로
+    if(ad && !bd) return -1; // 출고된 것이 아직 안 된 것보다 위로
+    if(!ad && bd) return 1;
+    return (b.requestDate||'').localeCompare(a.requestDate||''); // 둘 다 미출고면 접수일 기준
+  });
+  keys.forEach(k=> delete data.months[k]);
+  const wasCurrent = keys.includes(currentMonth);
+  data.months[year] = (data.months[year]||[]).concat(merged);
+  if(wasCurrent) currentMonth = year;
+  return merged.length;
+}
+
+function handleMergeYearClick(){
+  if(currentUser.role==='staff'){ alert('연도 데이터 합치기는 관리자/부관리자/운영자만 가능해요.'); return; }
+  const candidates = getMergeCandidateYears();
+  if(candidates.length===0){ alert('합칠 수 있는 지난 연도의 월별 데이터가 없어요. (올해 데이터는 합칠 수 없어요)'); return; }
+  const year = candidates[0]; // 가장 오래된 연도부터 순서대로
+  const count = Object.keys(data.months).filter(k=> new RegExp('^'+year+'-\\d{2}$').test(k)).reduce((sum,k)=>sum+(data.months[k]||[]).length,0);
+  const proceed = confirm(
+    year+'년 월별 데이터(총 '+count+'건)를 하나로 합칠까요?\n'+
+    '합친 뒤에는 최신 출고일 순으로 정렬되어 표시되고, 다시 월별로 나눌 수 없어요.'
+  );
+  if(!proceed) return;
+  const mergedCount = mergeYearData(year);
+  logActivity('연도 데이터 합치기', year+'년 월별 데이터 '+mergedCount+'건을 하나로 병합');
+  saveData();
+  render();
+  alert(year+'년 데이터 '+mergedCount+'건을 하나로 합쳤어요.');
+}
+
+/* ---------- month view: rail + stats ---------- */
+function currentRows(){ return data.months[currentMonth] || []; }
+function allRows(){
+  let list = [];
+  Object.values(data.months).forEach(rows=>{ list = list.concat(rows); });
+  return list;
+}
+function allRowsWithMonth(){
+  let list = [];
+  Object.keys(data.months).forEach(mk=>{ (data.months[mk]||[]).forEach(r=>list.push(Object.assign({__month:mk}, r))); });
+  return list;
+}
+function isInYear(monthKey, year){ return monthKey.split('-')[0] === String(year); }
+
+function renderRailAndStats(){
+  const rows = currentRows();
+  const counts = { ALL:rows.length, SHIPPED:0, PENDING:0, DONE:0 };
+  rows.forEach(r=>{ counts[computeStatus(r).key]++; });
+
+  ['ALL','SHIPPED','PENDING','DONE'].forEach(k=>{ $('ps_cnt'+k).textContent = counts[k]; });
+  document.querySelectorAll('#ps_rail .slot[data-status]').forEach(el=>{
+    el.classList.toggle('active', el.dataset.status===activeStatus);
+  });
+
+  $('ps_statTotal').textContent = allRows().length;
+  $('ps_statShipped').textContent = counts.SHIPPED;
+  $('ps_statPending').textContent = counts.PENDING;
+
+  $('ps_statusName').textContent = STATUS_LABEL[activeStatus];
+  $('ps_statusCode').textContent = activeStatus;
+}
+
+/* ---------- month view: table ---------- */
+function matchesSearch(row){
+  if(!searchTerm) return true;
+  const hay = [row.receiptNumber,row.customerName,row.clientName,row.phone,row.address,row.material,row.shipMaterial,row.model,row.serial910,row.customerSerial,row.symptom,row.shipInvoice,row.returnInvoice].join(' ').toLowerCase();
+  return hay.includes(searchTerm.toLowerCase());
+}
+
+function renderTable(){
+  const wrap = $('ps_tableWrap');
+  let rows = currentRows()
+    .filter(r=> activeStatus==='ALL' || computeStatus(r).key===activeStatus)
+    .filter(matchesSearch)
+    .slice().reverse();
+
+  const extractors = {
+    receiptNumber:r=>r.receiptNumber, customerName:r=>r.customerName, phone:r=>r.phone, address:r=>r.address,
+    shipMaterial:r=>r.shipMaterial || r.material, shipDate:r=>r.shipDate, shipInvoice:r=>r.shipInvoice,
+    returnDate:r=>r.returnDate, clientName:r=>r.clientName, status:r=>computeStatus(r).label
+  };
+  rows = applySort(rows, monthSort, extractors);
+
+  if(rows.length===0){
+    wrap.innerHTML = '<div class="empty"><div class="disp">등록된 항목이 없어요</div><div>검색 조건을 바꾸거나 새 선출고를 등록해보세요.</div></div>';
+    return;
+  }
+
+  let html = '<table>'+
+    '<colgroup>'+
+      '<col style="width:8%">'+
+      '<col style="width:10%">'+
+      '<col style="width:9%">'+
+      '<col style="width:20%">'+
+      '<col style="width:20%">'+
+      '<col style="width:8%">'+
+      '<col style="width:8%">'+
+      '<col style="width:7%">'+
+      '<col style="width:6%">'+
+      '<col style="width:4%">'+
+    '</colgroup>'+
+    '<thead>'+
+    '<tr class="grp-row">'+
+      '<th colspan="1">접수 정보</th>'+
+      '<th colspan="3">고객 정보</th>'+
+      '<th colspan="3">출고 정보</th>'+
+      '<th colspan="1">회수 정보</th>'+
+      '<th colspan="2"></th>'+
+    '</tr>'+
+    '<tr>'+
+      sortHeaderCell('접수번호','receiptNumber',monthSort,'grp-end')+
+      sortHeaderCell('업체명','customerName',monthSort)+
+      sortHeaderCell('전화번호','phone',monthSort)+
+      sortHeaderCell('주소','address',monthSort,'grp-end')+
+      sortHeaderCell('출고 자재명','shipMaterial',monthSort)+
+      sortHeaderCell('출고일','shipDate',monthSort)+
+      sortHeaderCell('출고 방법(출고송장번호)','shipInvoice',monthSort,'grp-end')+
+      sortHeaderCell('회수일','returnDate',monthSort,'grp-end track-anchor')+
+      sortHeaderCell('고객명','clientName',monthSort)+
+      sortHeaderCell('상태','status',monthSort,'status-col')+
+    '</tr></thead><tbody>';
+
+  rows.forEach(row=>{
+    const st = computeStatus(row);
+    html += '<tr>'+
+      '<td class="grp-end"><span class="receipt-link" data-id="'+row.id+'">'+esc(row.receiptNumber||'-')+'</span></td>'+
+      buildCustomerCells(row)+
+      '<td>'+esc(row.shipMaterial || row.material)+'</td>'+
+      '<td class="mono">'+esc(row.shipDate)+'</td>'+
+      buildShipMethodCell(row)+
+      '<td class="mono grp-end">'+esc(row.returnDate)+'</td>'+
+      '<td class="cell-note">'+esc(row.clientName)+'</td>'+
+      '<td class="status-col"><span class="status-badge '+st.cls+'">'+st.label+'</span></td>'+
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.receipt-link').forEach(el=>{
+    el.addEventListener('click', ()=>openModal(el.dataset.id));
+  });
+  wrap.querySelectorAll('.invoice-link').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); openTrackModal(el.dataset.invoice, el.dataset.ship, el.dataset.return, el); });
+  });
+  bindSortableHeaders(wrap, monthSort, renderTable);
+}
+
+function esc(s){
+  if(s===undefined || s===null) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function buildCustomerCells(row){
+  return '<td>'+esc(row.customerName)+'</td>'+
+    '<td class="mono cell-dim">'+esc(row.phone)+'</td>'+
+    '<td class="cell-dim grp-end">'+esc(row.address)+'</td>';
+}
+function buildShipMethodCell(row){
+  if(row.shipMethod==='담당자 직출고') return '<td class="mono cell-dim grp-end">담당자 직출고</td>';
+  if(row.shipMethod==='퀵출고') return '<td class="mono cell-dim grp-end">퀵 출고</td>';
+  return '<td class="mono cell-dim grp-end">'+(row.shipInvoice ? '<span class="invoice-link" data-invoice="'+esc(row.shipInvoice)+'" data-ship="'+esc(row.shipDate)+'" data-return="'+esc(row.returnDate)+'">'+esc(row.shipInvoice)+'</span>' : '')+'</td>';
+}
+
+function formatRequestDateCell(dateStr){
+  if(!dateStr) return '';
+  const parts = dateStr.split('-');
+  if(parts.length!==3) return esc(dateStr);
+  return '<div class="req-date">'+parts[0]+'</div><div class="req-date-sub">'+parts[1]+'-'+parts[2]+'</div>';
+}
+
+/* ---------- inventory view ---------- */
+function normalizeInvCategory(item){
+  return (item.category && CATEGORIES.includes(item.category)) ? item.category : '미분류';
+}
+
+function renderInvCategoryRail(){
+  const items = data.inventory;
+  const counts = { ALL: 0 };
+  CATEGORIES.concat(['미분류']).forEach(c=>{ counts[c] = 0; });
+  items.forEach(i=>{
+    const available = Math.max((i.qty||0) - (i.inUse||0), 0);
+    counts.ALL += available;
+    counts[normalizeInvCategory(i)] += available;
+  });
+
+  const container = $('ps_invCategorySlots');
+  container.innerHTML = '';
+  const list = [{ key:'ALL', name:'전체보기' }].concat(
+    CATEGORIES.map(c=>({ key:c, name:c }))
+  ).concat(counts['미분류']>0 ? [{ key:'미분류', name:'미분류' }] : []);
+
+  list.forEach(item=>{
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (item.key===activeInvCategory ? ' active' : '');
+    slot.innerHTML = '<span class="slot-pin"></span><span class="slot-name">'+item.name+'</span><span class="slot-code mono">'+(counts[item.key]||0)+'</span>';
+    slot.addEventListener('click', ()=>{ activeInvCategory = item.key; renderInvCategoryRail(); renderInventory(); });
+    container.appendChild(slot);
+  });
+}
+
+function renderInventory(){
+  const wrap = $('ps_inventoryList');
+  const canManageInv = currentUser.role==='root' || currentUser.role==='mid';
+  $('ps_invAddBtn').style.display = canManageInv ? 'inline-flex' : 'none';
+
+  let availableTotal = 0;
+  const filtered = data.inventory.filter(i=> activeInvCategory==='ALL' || normalizeInvCategory(i)===activeInvCategory);
+
+  if(filtered.length===0){
+    wrap.innerHTML = '<div class="empty"><div class="disp">등록된 재고 자재가 없어요</div><div>'+(canManageInv ? '+ 자재 등록으로 선출고 가능한 자재를 추가해보세요.' : '')+'</div></div>';
+    $('ps_invAvailableTotal').textContent = '0개';
+    return;
+  }
+
+  let html = '<table><thead><tr>'+
+    sortHeaderCell('구분','category',invSort)+sortHeaderCell('자재명','material',invSort)+sortHeaderCell('보유수량','qty',invSort)+sortHeaderCell('가능수량','available',invSort)+sortHeaderCell('진행 현황','inUse',invSort)+'<th></th></tr></thead><tbody>';
+
+  const items = filtered.map(item=>{
+    const inUse = item.inUse || 0;
+    const available = Math.max((item.qty||0) - inUse, 0);
+    return Object.assign({}, item, { inUse, available, category: normalizeInvCategory(item) });
+  });
+  const sortedItems = applySort(items, invSort, {
+    category:i=>i.category, material:i=>i.material, qty:i=>i.qty, available:i=>i.available, inUse:i=>i.inUse
+  });
+  const finalItems = invSort.key ? sortedItems : sortedItems.slice().sort((a,b)=>a.category.localeCompare(b.category,'ko') || a.material.localeCompare(b.material,'ko'));
+
+  finalItems.forEach(item=>{
+    availableTotal += item.available;
+    html += '<tr>'+
+      '<td class="cell-dim">'+esc(item.category)+'</td>'+
+      '<td class="item-name">'+esc(item.material)+'</td>'+
+      '<td class="mono">'+item.qty+'개</td>'+
+      '<td class="mono">'+item.available+'개</td>'+
+      '<td><span class="status-badge '+(item.inUse>0 ? 'status-warn' : 'status-good')+'">'+(item.inUse>0 ? item.inUse+'개 선출고 진행중' : '전체 보유중')+'</span></td>'+
+      '<td>'+(canManageInv ? '<button class="btn-detail" data-id="'+item.id+'">수정</button>' : '')+'</td>'+
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  $('ps_invAvailableTotal').textContent = availableTotal+'개';
+
+  wrap.querySelectorAll('.btn-detail').forEach(btn=>{
+    btn.addEventListener('click', ()=>openInvModal(btn.dataset.id));
+  });
+  bindSortableHeaders(wrap, invSort, renderInventory);
+}
+
+function openInvModal(id){
+  editingInvId = id || null;
+  const item = editingInvId ? data.inventory.find(i=>i.id===editingInvId) : null;
+  $('ps_invModalTitle').textContent = item ? '자재 수정' : '자재 등록';
+  $('ps_invDeleteBtn').style.display = item ? 'inline-flex' : 'none';
+  $('ps_inv_category').value = item?.category || '';
+  $('ps_inv_material').value = item?.material || '';
+  $('ps_inv_qty').value = item ? item.qty : '';
+  $('ps_inv_inUse').value = item ? (item.inUse || 0) : 0;
+  $('ps_invOverlay').classList.add('show');
+  setTimeout(()=>$('ps_inv_material').focus(), 50);
+}
+function closeInvModal(){ $('ps_invOverlay').classList.remove('show'); editingInvId = null; }
+
+/* ---------- CJ대한통운 배송 조회 ---------- */
+const TRACK_STAGES = ['집화','배송중','배송완료'];
+function openTrackModal(invoice, shipDate, returnDate, sourceEl){
+  if(!invoice) return;
+  $('ps_track_invoice').textContent = invoice;
+  $('ps_track_link').href = 'https://trace.cjlogistics.com/next/tracking.html?wblNo='+encodeURIComponent(invoice);
+
+  let stage = 0; // 몇 단계까지 완료로 볼지 (0=아직, 1=집화, 2=배송중, 3=배송완료)
+  if(returnDate){
+    stage = 3; // 회수까지 진행됐다는 건 출고 배송 자체는 이미 완료된 것
+  }else if(shipDate){
+    const d = Math.max(daysBetween(shipDate, todayStr()), 0);
+    if(d<=0) stage = 1;
+    else if(d===1) stage = 2;
+    else stage = 3;
+  }
+
+  const stepper = $('ps_track_stepper');
+  stepper.innerHTML = TRACK_STAGES.map((label,i)=>{
+    const done = (i+1) <= stage;
+    return '<div class="track-step'+(done?' done':'')+'"><div class="track-line"></div><div class="track-dot"></div><div class="track-label">'+label+'</div></div>';
+  }).join('');
+
+  const flyout = $('ps_trackFlyout');
+  // 회수일 컬럼 헤더(track-anchor) 절반 지점부터, 헤더 바로 아래에서 시작해 오른쪽으로 펼쳐지도록 위치 계산
+  let top = 220, left = window.innerWidth - 300 - 20;
+  if(sourceEl){
+    const table = sourceEl.closest('table');
+    const anchorTh = table ? table.querySelector('th.track-anchor') : null;
+    const theadEl = table ? table.querySelector('thead') : null;
+    if(theadEl) top = theadEl.getBoundingClientRect().bottom;
+    if(anchorTh){
+      const r = anchorTh.getBoundingClientRect();
+      left = r.left + r.width/2; // 회수일 칸이 절반쯤 걸치도록
+    }
+  }
+  const maxLeft = window.innerWidth - 300 - 8;
+  flyout.style.top = Math.max(top, 0)+'px';
+  flyout.style.left = Math.min(left, maxLeft)+'px';
+
+  flyout.classList.add('show');
+  setTimeout(()=>document.addEventListener('click', trackOutsideClick), 0);
+}
+function trackOutsideClick(e){
+  const flyout = $('ps_trackFlyout');
+  if(!flyout.contains(e.target)){ closeTrackModal(); }
+}
+function closeTrackModal(){
+  $('ps_trackFlyout').classList.remove('show');
+  document.removeEventListener('click', trackOutsideClick);
+}
+
+function saveInv(){
+  if(!(currentUser.role==='root' || currentUser.role==='mid')){ alert('자재 등록/수정은 관리자만 할 수 있어요.'); return; }
+  const category = $('ps_inv_category').value;
+  const material = $('ps_inv_material').value.trim();
+  const qty = parseInt($('ps_inv_qty').value, 10);
+  let inUse = parseInt($('ps_inv_inUse').value, 10);
+  if(isNaN(inUse)) inUse = 0;
+  if(!category){ alert('구분을 선택해주세요'); $('ps_inv_category').focus(); return; }
+  if(!material){ alert('자재명을 입력해주세요'); $('ps_inv_material').focus(); return; }
+  if(isNaN(qty) || qty < 0){ alert('보유수량을 올바르게 입력해주세요'); $('ps_inv_qty').focus(); return; }
+  if(inUse < 0){ alert('선출고 진행중 수량은 0 이상이어야 해요'); $('ps_inv_inUse').focus(); return; }
+  if(inUse > qty){ alert('선출고 진행중 수량이 보유수량보다 많을 수 없어요'); $('ps_inv_inUse').focus(); return; }
+
+  if(editingInvId){
+    const item = data.inventory.find(i=>i.id===editingInvId);
+    if(item){ item.category = category; item.material = material; item.qty = qty; item.inUse = inUse; }
+  }else{
+    data.inventory.push({ id: uid(), category, material, qty, inUse });
+  }
+  saveData();
+  render();
+  closeInvModal();
+}
+
+function deleteInv(){
+  if(!(currentUser.role==='root' || currentUser.role==='mid')){ alert('자재 삭제는 관리자만 할 수 있어요.'); return; }
+  if(!editingInvId) return;
+  if(!confirm('이 재고 자재를 삭제할까요?')) return;
+  data.inventory = data.inventory.filter(i=>i.id!==editingInvId);
+  saveData();
+  render();
+  closeInvModal();
+}
+
+/* ---------- overview view (전체 선출고 현황) ---------- */
+function overviewRows(){
+  const months = Object.keys(data.months).sort().reverse();
+  let list = [];
+  months.forEach(mk=>{
+    (data.months[mk]||[]).slice().reverse().forEach(r=> list.push(Object.assign({__month:mk}, r)));
+  });
+  return list;
+}
+
+function renderCategoryRail(){
+  const rows = overviewRows();
+  const counts = { ALL: rows.length };
+  CATEGORIES.concat(['미분류']).forEach(c=>{ counts[c] = 0; });
+  rows.forEach(r=>{ counts[normalizeCategory(r)]++; });
+
+  const container = $('ps_categorySlots');
+  container.innerHTML = '';
+  const list = [{ key:'ALL', name:'전체보기' }].concat(
+    CATEGORIES.map(c=>({ key:c, name:c }))
+  ).concat(counts['미분류']>0 ? [{ key:'미분류', name:'미분류' }] : []);
+
+  list.forEach(item=>{
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (item.key===activeCategory ? ' active' : '');
+    slot.dataset.category = item.key;
+    slot.innerHTML = '<span class="slot-pin"></span><span class="slot-name">'+item.name+'</span><span class="slot-code mono">'+(counts[item.key]||0)+'</span>';
+    slot.addEventListener('click', ()=>{ activeCategory = item.key; overviewPage = 1; renderCategoryRail(); renderOverviewTable(); renderOverviewStats(); $('ps_overviewCatName').textContent = item.key==='ALL' ? '전체보기' : item.name; });
+    container.appendChild(slot);
+  });
+}
+
+function matchesOverviewSearch(row){
+  if(!overviewSearchTerm) return true;
+  const hay = [row.receiptNumber,row.customerName,row.clientName,row.phone,row.address,row.material,row.shipMaterial,row.model,row.serial910,row.customerSerial,row.symptom,row.shipInvoice,row.returnInvoice].join(' ').toLowerCase();
+  return hay.includes(overviewSearchTerm.toLowerCase());
+}
+
+function matchesOverviewStatus(row){
+  if(overviewStatusFilter==='ALL') return true;
+  const st = computeStatus(row);
+  if(overviewStatusFilter==='PENDING') return st.key==='PENDING';
+  if(overviewStatusFilter==='SHIPPED') return st.key==='SHIPPED';
+  if(overviewStatusFilter==='DONE_USED') return st.key==='DONE' && st.used;
+  if(overviewStatusFilter==='DONE_UNUSED') return st.key==='DONE' && !st.used;
+  return true;
+}
+
+function renderOverviewTable(){
+  const wrap = $('ps_overviewTableWrap');
+  let rows = overviewRows()
+    .filter(r=> activeCategory==='ALL' || normalizeCategory(r)===activeCategory)
+    .filter(matchesOverviewSearch)
+    .filter(matchesOverviewStatus);
+
+  const extractors = {
+    receiptNumber:r=>r.receiptNumber, customerName:r=>r.customerName, phone:r=>r.phone, address:r=>r.address,
+    shipMaterial:r=>r.shipMaterial || r.material, shipDate:r=>r.shipDate, shipInvoice:r=>r.shipInvoice,
+    returnDate:r=>r.returnDate, clientName:r=>r.clientName, status:r=>computeStatus(r).label
+  };
+  rows = applySort(rows, overviewSort, extractors);
+
+  if(rows.length===0){
+    wrap.innerHTML = '<div class="empty"><div class="disp">해당하는 선출고 항목이 없어요</div><div>필터나 검색 조건을 바꿔보세요.</div></div>';
+    $('ps_overviewPager').innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / OVERVIEW_PAGE_SIZE));
+  if(overviewPage > totalPages) overviewPage = totalPages;
+  if(overviewPage < 1) overviewPage = 1;
+  const pageRows = rows.slice((overviewPage-1)*OVERVIEW_PAGE_SIZE, overviewPage*OVERVIEW_PAGE_SIZE);
+
+  let html = '<table>'+
+    '<colgroup>'+
+      '<col style="width:8%">'+
+      '<col style="width:10%">'+
+      '<col style="width:9%">'+
+      '<col style="width:20%">'+
+      '<col style="width:20%">'+
+      '<col style="width:8%">'+
+      '<col style="width:8%">'+
+      '<col style="width:7%">'+
+      '<col style="width:6%">'+
+      '<col style="width:4%">'+
+    '</colgroup>'+
+    '<thead>'+
+    '<tr class="grp-row">'+
+      '<th colspan="1">접수 정보</th>'+
+      '<th colspan="3">고객 정보</th>'+
+      '<th colspan="3">출고 정보</th>'+
+      '<th colspan="1">회수 정보</th>'+
+      '<th colspan="2"></th>'+
+    '</tr>'+
+    '<tr>'+
+      sortHeaderCell('접수번호','receiptNumber',overviewSort,'grp-end')+
+      sortHeaderCell('업체명','customerName',overviewSort)+
+      sortHeaderCell('전화번호','phone',overviewSort)+
+      sortHeaderCell('주소','address',overviewSort,'grp-end')+
+      sortHeaderCell('출고 자재명','shipMaterial',overviewSort)+
+      sortHeaderCell('출고일','shipDate',overviewSort)+
+      sortHeaderCell('출고 방법(출고송장번호)','shipInvoice',overviewSort,'grp-end')+
+      sortHeaderCell('회수일','returnDate',overviewSort,'grp-end track-anchor')+
+      sortHeaderCell('고객명','clientName',overviewSort)+
+      sortHeaderCell('상태','status',overviewSort,'status-col')+
+    '</tr></thead><tbody>';
+
+  pageRows.forEach(row=>{
+    const st = computeStatus(row);
+    html += '<tr>'+
+      '<td class="grp-end"><span class="receipt-link" data-id="'+row.id+'" data-month="'+row.__month+'">'+esc(row.receiptNumber||'-')+'</span></td>'+
+      buildCustomerCells(row)+
+      '<td>'+esc(row.shipMaterial || row.material)+'</td>'+
+      '<td class="mono">'+esc(row.shipDate)+'</td>'+
+      buildShipMethodCell(row)+
+      '<td class="mono grp-end">'+esc(row.returnDate)+'</td>'+
+      '<td class="cell-note">'+esc(row.clientName)+'</td>'+
+      '<td class="status-col"><span class="status-badge '+st.cls+'">'+st.label+'</span></td>'+
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.receipt-link').forEach(el=>{
+    el.addEventListener('click', ()=>openModal(el.dataset.id, el.dataset.month));
+  });
+  wrap.querySelectorAll('.invoice-link').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); openTrackModal(el.dataset.invoice, el.dataset.ship, el.dataset.return, el); });
+  });
+  bindSortableHeaders(wrap, overviewSort, renderOverviewTable);
+  renderOverviewPager(totalPages);
+}
+
+function renderOverviewPager(totalPages){
+  const pager = $('ps_overviewPager');
+  if(!pager) return;
+  if(totalPages<=1){ pager.innerHTML=''; return; }
+  pager.innerHTML =
+    '<button class="btn ghost" id="ps_overviewPrevBtn" '+(overviewPage<=1?'disabled':'')+'>‹ 이전</button>'+
+    '<span class="mono">'+overviewPage+' / '+totalPages+'</span>'+
+    '<button class="btn ghost" id="ps_overviewNextBtn" '+(overviewPage>=totalPages?'disabled':'')+'>다음 ›</button>';
+  const prevBtn = $('ps_overviewPrevBtn'), nextBtn = $('ps_overviewNextBtn');
+  if(prevBtn) prevBtn.addEventListener('click', ()=>{ if(overviewPage>1){ overviewPage--; renderOverviewTable(); } });
+  if(nextBtn) nextBtn.addEventListener('click', ()=>{ if(overviewPage<totalPages){ overviewPage++; renderOverviewTable(); } });
+}
+
+function renderOverviewStats(){
+  const rows = overviewRows().filter(r=> activeCategory==='ALL' || normalizeCategory(r)===activeCategory);
+  let shipped=0, pending=0;
+  rows.forEach(r=>{
+    const k = computeStatus(r).key;
+    if(k==='SHIPPED') shipped++;
+    else if(k==='PENDING') pending++;
+  });
+  $('ps_statTotal').textContent = allRows().length;
+  $('ps_statShipped').textContent = shipped;
+  $('ps_statPending').textContent = pending;
+}
+
+/* ---------- stats / dashboard view ---------- */
+function availableYears(){
+  const years = new Set();
+  Object.keys(data.months).forEach(k=>years.add(k.split('-')[0]));
+  years.add(String(new Date().getFullYear()));
+  return Array.from(years).sort().reverse();
+}
+
+function getMonthCounts(year){
+  const counts = [];
+  for(let m=1; m<=12; m++){
+    const key = year+'-'+pad(m);
+    counts.push((data.months[key]||[]).length);
+  }
+  return counts;
+}
+
+function getCategoryBreakdown(year){
+  const rows = allRowsWithMonth().filter(r=>isInYear(r.__month, year));
+  const buckets = {};
+  rows.forEach(r=>{
+    const cat = normalizeCategory(r);
+    buckets[cat] = (buckets[cat]||0) + 1;
+  });
+  const total = rows.length;
+  const order = CATEGORIES.concat(['미분류']);
+  return order.filter(c=>buckets[c]).map(c=>({
+    category:c, count:buckets[c], pct: total ? Math.round(buckets[c]/total*1000)/10 : 0, color: CATEGORY_COLORS[c]
+  }));
+}
+
+function getReturnStats(year){
+  const rows = allRowsWithMonth().filter(r=>isInYear(r.__month, year) && r.shipDate && r.returnDate);
+  const days = rows.map(r=>daysBetween(r.shipDate, r.returnDate)).filter(d=>d>=0);
+  if(days.length===0) return { avg:0, min:0, max:0, count:0 };
+  const sum = days.reduce((a,b)=>a+b,0);
+  return {
+    avg: Math.round(sum/days.length*10)/10,
+    min: Math.min(...days),
+    max: Math.max(...days),
+    count: days.length
+  };
+}
+
+function getUsageStats(year){
+  const rows = allRowsWithMonth().filter(r=>isInYear(r.__month, year) && r.returnDate);
+  let used=0, unused=0;
+  rows.forEach(r=>{
+    if(r.customerSerial && r.customerSerial.trim()) used++;
+    else unused++;
+  });
+  const classified = used+unused;
+  return {
+    used, unused, classified,
+    pctUsed: classified ? Math.round(used/classified*1000)/10 : 0,
+    pctUnused: classified ? Math.round(unused/classified*1000)/10 : 0
+  };
+}
+
+function getTopCustomers(year, limit){
+  const rows = allRowsWithMonth().filter(r=>isInYear(r.__month, year) && r.customerName);
+  const counts = {};
+  rows.forEach(r=>{ counts[r.customerName] = (counts[r.customerName]||0)+1; });
+  return Object.keys(counts)
+    .map(name=>({ name, count: counts[name] }))
+    .sort((a,b)=> b.count-a.count)
+    .slice(0, limit||5);
+}
+
+function buildBarChartSVG(counts){
+  const w=820, h=230, padL=34, padR=14, padT=24, padB=30;
+  const max = Math.max(1, ...counts);
+  const plotW = w-padL-padR, plotH = h-padT-padB;
+  const gap=10;
+  const barW = (plotW - gap*11)/12;
+  let bars='', labels='';
+  counts.forEach((v,i)=>{
+    const bh = v===0 ? 0 : Math.max((v/max)*plotH, 3);
+    const x = padL + i*(barW+gap);
+    const y = h-padB-bh;
+    bars += '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="2" fill="var(--bad)" opacity="'+(v===0?0.18:0.92)+'"></rect>';
+    if(v>0){ bars += '<text x="'+(x+barW/2).toFixed(1)+'" y="'+(y-6).toFixed(1)+'" font-size="10.5" text-anchor="middle" fill="#53575F" font-family="JetBrains Mono, monospace">'+v+'</text>'; }
+    labels += '<text x="'+(x+barW/2).toFixed(1)+'" y="'+(h-10)+'" font-size="10.5" text-anchor="middle" fill="#93979F" font-family="Space Grotesk, sans-serif">'+(i+1)+'월</text>';
+  });
+  return '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%; height:auto; display:block;">'+
+    '<line x1="'+padL+'" y1="'+(h-padB)+'" x2="'+(w-padR)+'" y2="'+(h-padB)+'" stroke="#E1E4EA" stroke-width="1"></line>'+
+    bars + labels +
+  '</svg>';
+}
+
+function buildPieSVG(catData){
+  const total = catData.reduce((a,c)=>a+c.count,0);
+  const cx=90, cy=90, r=80;
+  if(total===0){
+    return '<svg viewBox="0 0 180 180" width="180" height="180"><circle cx="90" cy="90" r="80" fill="#F6F7F9" stroke="#E1E4EA"></circle></svg>';
+  }
+  let cumulative=0, paths='';
+  catData.forEach(d=>{
+    const startA = (cumulative/total)*2*Math.PI;
+    cumulative += d.count;
+    const endA = (cumulative/total)*2*Math.PI;
+    const x1 = cx + r*Math.sin(startA), y1 = cy - r*Math.cos(startA);
+    const x2 = cx + r*Math.sin(endA), y2 = cy - r*Math.cos(endA);
+    const largeArc = (endA-startA) > Math.PI ? 1 : 0;
+    if(catData.length===1){
+      paths += '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+d.color+'"></circle>';
+    }else{
+      paths += '<path d="M'+cx+','+cy+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+r+','+r+' 0 '+largeArc+',1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z" fill="'+d.color+'" stroke="#fff" stroke-width="1.5"></path>';
+    }
+  });
+  return '<svg viewBox="0 0 180 180" width="180" height="180">'+paths+'</svg>';
+}
+
+function renderStatsView(){
+  if(!statsYear) statsYear = availableYears()[0];
+
+  const yearSel = $('ps_statsYear');
+  yearSel.innerHTML = '';
+  availableYears().forEach(y=>{
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y+'년';
+    if(y===statsYear) opt.selected = true;
+    yearSel.appendChild(opt);
+  });
+
+  const counts = getMonthCounts(statsYear);
+  $('ps_barChart').innerHTML = counts.some(c=>c>0)
+    ? buildBarChartSVG(counts)
+    : '<div class="bar-empty-note">'+statsYear+'년에 등록된 선출고 데이터가 없어요</div>' + buildBarChartSVG(counts);
+
+  const catData = getCategoryBreakdown(statsYear);
+  const pieHtml = '<div class="pie-wrap">'+
+    buildPieSVG(catData)+
+    '<div class="pie-legend">'+
+      (catData.length===0 ? '<div class="pie-empty-note">데이터 없음</div>' :
+        catData.map(d=>'<div class="pie-legend-row"><span class="pie-dot" style="background:'+d.color+'"></span><span class="pie-legend-name">'+d.category+'</span><span class="pie-legend-val">'+d.pct+'% · '+d.count+'건</span></div>').join('')
+      )+
+    '</div>'+
+  '</div>';
+  $('ps_pieChart').innerHTML = pieHtml;
+
+  const ret = getReturnStats(statsYear);
+  const usage = getUsageStats(statsYear);
+  const usageCatData = usage.classified===0 ? [] : [
+    { category:'교체완료', count:usage.used, pct:usage.pctUsed, color:'#2F9E5B' },
+    { category:'미사용 회수', count:usage.unused, pct:usage.pctUnused, color:'#E0A828' }
+  ];
+  const usagePieHtml = '<div class="pie-wrap">'+
+    buildPieSVG(usageCatData)+
+    '<div class="pie-legend">'+
+      (usageCatData.length===0 ? '<div class="pie-empty-note">회수완료된 항목이 없어요</div>' :
+        usageCatData.map(d=>'<div class="pie-legend-row"><span class="pie-dot" style="background:'+d.color+'"></span><span class="pie-legend-name">'+d.category+'</span><span class="pie-legend-val">'+d.pct+'% · '+d.count+'건</span></div>').join('')
+      )+
+    '</div>'+
+  '</div>';
+  $('ps_usagePie').innerHTML = usagePieHtml;
+
+  $('ps_returnStats').innerHTML = ret.count===0
+    ? '<div class="ret-big"><div class="ret-big-num" style="color:#93979F;">-</div><div class="ret-big-label">'+statsYear+'년에 회수 완료된 데이터가 없어요</div></div>'
+    : '<div class="ret-big"><div class="ret-big-num">'+ret.avg+'<span style="font-size:18px;">일</span></div><div class="ret-big-label">평균 회수 소요 시간 (완료 '+ret.count+'건 기준)</div></div>'+
+      '<div class="ret-sub">'+
+        '<div class="ret-sub-item"><div class="ret-sub-val">'+ret.min+'일</div><div class="ret-sub-label">최소</div></div>'+
+        '<div class="ret-sub-item"><div class="ret-sub-val">'+ret.max+'일</div><div class="ret-sub-label">최대</div></div>'+
+        '<div class="ret-sub-item"><div class="ret-sub-val">'+ret.count+'건</div><div class="ret-sub-label">완료 건수</div></div>'+
+      '</div>';
+
+  const top = getTopCustomers(statsYear, 5);
+  $('ps_topCustomers').innerHTML = top.length===0
+    ? '<div class="pie-empty-note">'+statsYear+'년에 등록된 데이터가 없어요</div>'
+    : '<div class="top-list">'+top.map((t,i)=>{
+        const maxCount = top[0].count;
+        const pct = Math.round(t.count/maxCount*100);
+        return '<div class="top-row">'+
+          '<span class="top-rank">'+(i+1)+'</span>'+
+          '<span class="top-name">'+esc(t.name)+'</span>'+
+          '<div class="top-bar-wrap"><div class="top-bar" style="width:'+pct+'%;"></div></div>'+
+          '<span class="top-count">'+t.count+'건</span>'+
+        '</div>';
+      }).join('')+'</div>';
+}
+
+function exportStatsExcel(){
+  if(typeof XLSX === 'undefined'){ alert('엑셀 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인해주세요.'); return; }
+  const year = statsYear || availableYears()[0];
+  const counts = getMonthCounts(year);
+  const catData = getCategoryBreakdown(year);
+  const ret = getReturnStats(year);
+  const usage = getUsageStats(year);
+  const raw = allRowsWithMonth();
+
+  const wb = XLSX.utils.book_new();
+
+  const wsMonth = XLSX.utils.json_to_sheet(counts.map((c,i)=>({ 월:(i+1)+'월', 선출고수량:c })));
+  XLSX.utils.book_append_sheet(wb, wsMonth, year+'_월별수량');
+
+  const wsCat = XLSX.utils.json_to_sheet(catData.map(c=>({ 카테고리:c.category, 건수:c.count, 비율:c.pct+'%' })));
+  XLSX.utils.book_append_sheet(wb, wsCat, year+'_카테고리비율');
+
+  const wsRet = XLSX.utils.json_to_sheet([{ 평균회수일:ret.avg, 최소:ret.min, 최대:ret.max, 완료건수:ret.count, 사용_교체완료_건수:usage.used, 사용_교체완료_비율:usage.pctUsed+'%', 미사용회수_건수:usage.unused, 미사용회수_비율:usage.pctUnused+'%' }]);
+  XLSX.utils.book_append_sheet(wb, wsRet, year+'_회수시간');
+
+  const wsRaw = XLSX.utils.json_to_sheet(raw.map(r=>({
+    월: r.__month,
+    접수번호: r.receiptNumber || '',
+    업체명: r.customerName || '',
+    출고방법: r.shipMethod || '',
+    전화번호: r.phone || '',
+    주소: r.address || '',
+    신청일: r.requestDate || '',
+    자재명: r.material || '',
+    카테고리: r.category || '',
+    모델명: r.model || '',
+    '910시리얼': r.serial910 || '',
+    고객회수시리얼: r.customerSerial || '',
+    불량증상: r.symptom || '',
+    출고일: r.shipDate || '',
+    출고송장번호: r.shipInvoice || '',
+    회수일: r.returnDate || '',
+    회수송장번호: r.returnInvoice || '',
+    고객명: r.clientName || '',
+    상태: computeStatus(r).label
+  })));
+  XLSX.utils.book_append_sheet(wb, wsRaw, '전체데이터');
+
+  XLSX.writeFile(wb, 'MSI_선출고_물동량_'+year+'.xlsx');
+}
+
+/* ---------- render dispatch ---------- */
+function render(){
+  renderTabbar();
+
+  const isInv = currentView==='inventory';
+  const isStats = currentView==='stats';
+  const isOverview = currentView==='overview';
+  const isMonth = currentView==='month';
+
+  $('ps_statsBar').style.display = (isMonth || isOverview) ? 'grid' : 'none';
+  $('ps_rail').style.display = isMonth ? 'flex' : 'none';
+  $('ps_categoryRail').style.display = isOverview ? 'flex' : 'none';
+  $('ps_invCategoryRail').style.display = isInv ? 'flex' : 'none';
+  $('ps_monthMain').style.display = isMonth ? 'block' : 'none';
+  $('ps_inventoryMain').style.display = isInv ? 'block' : 'none';
+  $('ps_statsMain').style.display = isStats ? 'block' : 'none';
+  $('ps_overviewMain').style.display = isOverview ? 'block' : 'none';
+
+  if(isInv){ renderInvCategoryRail(); renderInventory(); }
+  else if(isStats){ renderStatsView(); }
+  else if(isOverview){ renderCategoryRail(); renderOverviewTable(); renderOverviewStats(); }
+  else{ renderRailAndStats(); renderTable(); }
+}
+
+/* ---------- 선출고 modal ---------- */
+/* ---------- 권한 ---------- */
+const STAFF_EDITABLE_FIELDS = ['ps_f_customerName','ps_f_phone','ps_f_address','ps_f_material','ps_f_category','ps_f_symptom','ps_f_requestDate','ps_f_shipMethod'];
+const ALL_EDIT_FIELDS = ['ps_f_material','ps_f_category','ps_f_requestDate','ps_f_customerName','ps_f_phone','ps_f_address','ps_f_shipMethod','ps_f_shipMaterial','ps_f_model','ps_f_model2','ps_f_serial910','ps_f_returnMaterial','ps_f_customerSerial','ps_f_symptom','ps_f_shipDate','ps_f_shipInvoice','ps_f_returnDate','ps_f_returnInvoice'];
+
+function canManageAccounts(){ return currentUser && (currentUser.role==='root' || currentUser.role==='mid'); }
+function getEditPermission(row){
+  if(!currentUser) return 'none';
+  if(currentUser.role==='root' || currentUser.role==='mid' || currentUser.role==='operator') return 'full';
+  if(row && row.createdBy===currentUser.username) return 'limited';
+  return 'none';
+}
+function applyFieldPermissions(perm){
+  ALL_EDIT_FIELDS.forEach(id=>{
+    const el = $(id);
+    if(!el) return;
+    if(perm==='full') el.disabled = false;
+    else if(perm==='limited') el.disabled = !STAFF_EDITABLE_FIELDS.includes(id);
+    else el.disabled = true;
+  });
+  $('ps_saveBtn').style.display = perm==='none' ? 'none' : 'inline-flex';
+}
+let currentEditPerm = 'none';
+function refreshEditModalFieldStates(){
+  applyFieldPermissions(currentEditPerm);
+}
+
+/* ---------- 회수 정보: 케이스 부자재는 시리얼 대신 사용/미사용 선택 ---------- */
+function updateReturnFieldsForCategory(){
+  const isCaseAccessory = $('ps_f_category').value === '케이스 부자재';
+  $('ps_f_returnMaterialField').style.display = isCaseAccessory ? 'none' : '';
+  $('ps_f_model2Field').style.display = isCaseAccessory ? 'none' : '';
+  $('ps_f_customerSerialField').style.display = isCaseAccessory ? 'none' : '';
+  $('ps_f_returnUsageField').style.display = isCaseAccessory ? '' : 'none';
+
+  const disabled = $('ps_f_customerSerial').disabled;
+  $('ps_f_returnUsedBtn').disabled = disabled;
+  $('ps_f_returnUnusedBtn').disabled = disabled;
+  const used = !!($('ps_f_customerSerial').value && $('ps_f_customerSerial').value.trim());
+  $('ps_f_returnUsedBtn').classList.toggle('active', used);
+  $('ps_f_returnUnusedBtn').classList.toggle('active', !used);
+}
+function setCaseAccessoryUsage(used){
+  if($('ps_f_returnUsedBtn').disabled) return;
+  $('ps_f_customerSerial').value = used ? '사용' : '';
+  updateReturnFieldsForCategory();
+}
+$('ps_f_returnUsedBtn').addEventListener('click', ()=> setCaseAccessoryUsage(true));
+$('ps_f_returnUnusedBtn').addEventListener('click', ()=> setCaseAccessoryUsage(false));
+$('ps_f_category').addEventListener('change', updateReturnFieldsForCategory);
+
+function logActivity(action, detail){
+  data.activityLog.unshift({ ts:new Date().toISOString(), username:currentUser.username, action, detail });
+  if(data.activityLog.length>500) data.activityLog = data.activityLog.slice(0,500);
+}
+
+/* ---------- 문자함(알림) ---------- */
+function sendNotification(toUsername, message){
+  if(!toUsername) return;
+  data.notifications.unshift({ id:uid(), toUsername, message, ts:new Date().toISOString(), read:false });
+  if(data.notifications.length>500) data.notifications = data.notifications.slice(0,500);
+}
+function notifyAdmins(message){
+  data.accounts
+    .filter(a=>(a.role==='root' || a.role==='mid') && a.username!==currentUser.username)
+    .forEach(a=> sendNotification(a.username, message));
+}
+function updateInboxBadge(){
+  const count = data.notifications.filter(n=>n.toUsername===currentUser.username && !n.read).length;
+  const badge = $('ps_inboxBadge');
+  if(!badge) return;
+  if(count>0){ badge.style.display='inline-block'; badge.textContent = count>99 ? '99+' : count; }
+  else{ badge.style.display='none'; }
+}
+function renderInbox(){
+  const mine = data.notifications.filter(n=>n.toUsername===currentUser.username);
+  const wrap = $('ps_inboxList');
+  if(mine.length===0){
+    wrap.innerHTML = '<div class="empty" style="padding:40px 16px;"><div class="disp" style="font-size:13px;">받은 알림이 없어요</div></div>';
+  }else{
+    wrap.innerHTML = mine.map(n=>{
+      const d = new Date(n.ts);
+      const timeStr = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+      return '<div class="log-entry'+(n.read?'':' unread')+'">'+
+        '<div class="log-entry-top"><span class="log-entry-user">'+(n.read?'':'🔴 ')+'알림</span><span class="log-entry-time">'+timeStr+'</span></div>'+
+        '<div class="log-entry-detail">'+esc(n.message)+'</div>'+
+      '</div>';
+    }).join('');
+  }
+  let changed = false;
+  data.notifications.forEach(n=>{ if(n.toUsername===currentUser.username && !n.read){ n.read = true; changed = true; } });
+  if(changed) saveData();
+  updateInboxBadge();
+}
+
+/* ---------- 출고 완료 확인 (직출고/퀵출고) ---------- */
+let currentEditingRow = null;
+function refreshShipConfirmUI(){
+  const method = $('ps_f_shipMethod').value;
+  const wrap = $('ps_f_shipConfirmWrap');
+  if(method!=='담당자 직출고' && method!=='퀵출고'){
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'block';
+  const confirmed = !!(currentEditingRow && currentEditingRow.shipConfirmed);
+  const canConfirm = currentUser.role==='root' || currentUser.role==='mid' || currentUser.role==='operator';
+  if(confirmed){
+    wrap.innerHTML = '<span class="status-badge status-good">✓ 출고 완료 확인됨</span>';
+  }else{
+    wrap.innerHTML = '<button class="btn primary" id="ps_f_shipConfirmBtn"'+(canConfirm?'':' disabled')+'>출고 완료 확인</button>';
+    if(canConfirm){
+      $('ps_f_shipConfirmBtn').addEventListener('click', confirmShipCompletion);
+    }
+  }
+}
+function confirmShipCompletion(){
+  if(!editingId) return;
+  if(!(currentUser.role==='root' || currentUser.role==='mid' || currentUser.role==='operator')) return;
+  const targetMonth = editingMonth || currentMonth;
+  const row = (data.months[targetMonth]||[]).find(r=>r.id===editingId);
+  if(!row) return;
+  row.shipConfirmed = true;
+  if(!row.shipDate) row.shipDate = todayStr();
+  sendNotification(row.createdBy, '접수번호:'+(row.receiptNumber||'')+' '+row.shipMethod+' 완료 되었습니다.');
+  saveData();
+  currentEditingRow = row;
+  $('ps_f_shipDate').value = row.shipDate;
+  refreshShipConfirmUI();
+  updateInboxBadge();
+  render();
+}
+
+function openModal(id, monthKey){
+  editingId = id || null;
+  editingMonth = monthKey || null;
+  const list = editingMonth ? (data.months[editingMonth] || []) : currentRows();
+  const row = editingId ? list.find(r=>r.id===editingId) : null;
+  currentEditingRow = row;
+
+  $('ps_modalTitle').textContent = '선출고 처리';
+
+  $('ps_f_receiptView').textContent = row?.receiptNumber || '-';
+  $('ps_f_customerName').value = row?.customerName || '';
+  $('ps_f_phone').value = row?.phone || '';
+  $('ps_f_address').value = row?.address || '';
+  $('ps_f_shipMethod').value = row?.shipMethod || '';
+  $('ps_f_material').value = row?.material || '';
+  $('ps_f_category').value = row?.category || '케이스 부자재';
+  $('ps_f_requestDate').value = row?.requestDate || '';
+  $('ps_f_model').value = row?.model || '';
+  $('ps_f_model2').value = row?.model || '';
+  $('ps_f_shipMaterial').value = row?.shipMaterial || '';
+  $('ps_f_serial910').value = row?.serial910 || '';
+  $('ps_f_returnMaterial').value = row?.returnMaterial || '';
+  $('ps_f_customerSerial').value = row?.customerSerial || '';
+  $('ps_f_symptom').value = row?.symptom || '';
+  $('ps_f_shipDate').value = row?.shipDate || '';
+  $('ps_f_shipInvoice').value = row?.shipInvoice || '';
+  $('ps_f_returnDate').value = row?.returnDate || '';
+  $('ps_f_returnInvoice').value = row?.returnInvoice || '';
+  $('ps_f_clientName').value = row?.clientName || '';
+
+  currentEditPerm = getEditPermission(row);
+  refreshEditModalFieldStates();
+  refreshShipConfirmUI();
+  updateReturnFieldsForCategory();
+  $('ps_deleteBtn').style.display = (row && currentEditPerm==='full') ? 'inline-flex' : 'none';
+
+  const isCreator = !!(row && currentUser && row.createdBy===currentUser.username);
+  $('ps_f_clientName').disabled = !isCreator;
+  $('ps_f_clientNameHint').textContent = isCreator ? '(접수자만 수정 가능)' : '(접수자만 수정 가능 · 보기 전용)';
+
+  $('ps_overlay').classList.add('show');
+  setTimeout(()=>$('ps_f_material').focus(), 50);
+}
+function closeModal(){ $('ps_overlay').classList.remove('show'); editingId = null; editingMonth = null; }
+
+function openRequestModal(){
+  $('ps_r_receiptPreview').textContent = generateReceiptNumber();
+  $('ps_r_customerName').value = '';
+  $('ps_r_phone').value = '';
+  $('ps_r_address').value = '';
+  $('ps_r_customerName').disabled = false;
+  $('ps_r_phone').disabled = false;
+  $('ps_r_address').disabled = false;
+  $('ps_r_shipMethod').value = '';
+  $('ps_r_clientName').value = '';
+  $('ps_r_material').value = '';
+  $('ps_r_category').value = '';
+  $('ps_r_requestDate').value = todayStr();
+  $('ps_r_symptom').value = '';
+  const saveBtn0 = $('ps_requestSaveBtn'); if(saveBtn0) saveBtn0.disabled = false;
+  $('ps_requestOverlay').classList.add('show');
+  setTimeout(()=>$('ps_r_customerName').focus(), 50);
+}
+function closeRequestModal(){ $('ps_requestOverlay').classList.remove('show'); }
+
+function saveRequestRow(){
+  const saveBtn = $('ps_requestSaveBtn');
+  if(saveBtn && saveBtn.disabled) return; // 연타로 인한 중복 등록 방지
+
+  const shipMethod = $('ps_r_shipMethod').value;
+  const customerName = $('ps_r_customerName').value.trim();
+  const clientName = $('ps_r_clientName').value.trim();
+  const phone = $('ps_r_phone').value.trim();
+  const address = $('ps_r_address').value.trim();
+  const material = $('ps_r_material').value.trim();
+  const category = $('ps_r_category').value;
+  const requestDate = $('ps_r_requestDate').value;
+  const symptom = $('ps_r_symptom').value.trim();
+
+  if(!customerName){ alert('업체명을 입력해주세요'); $('ps_r_customerName').focus(); return; }
+  if(!phone){ alert('전화번호를 입력해주세요'); $('ps_r_phone').focus(); return; }
+  if(!address){ alert('주소를 입력해주세요'); $('ps_r_address').focus(); return; }
+  if(!material){ alert('제품명을 입력해주세요'); $('ps_r_material').focus(); return; }
+  if(!category){ alert('카테고리를 선택해주세요'); $('ps_r_category').focus(); return; }
+  if(!requestDate){ alert('출고 요청일을 입력해주세요'); $('ps_r_requestDate').focus(); return; }
+  if(!shipMethod){ alert('출고 방법을 선택해주세요'); $('ps_r_shipMethod').focus(); return; }
+  if(!clientName){ alert('고객명을 입력해주세요'); $('ps_r_clientName').focus(); return; }
+
+  // 같은 담당자가 방금(2분 이내) 똑같은 내용(업체명+고객명+제품명)을 이미 등록했는지 확인
+  const twoMinAgo = Date.now() - 2*60*1000;
+  const recentDup = (data.months[currentMonth]||[]).find(r=>
+    r.createdBy===currentUser.username && r.customerName===customerName &&
+    r.clientName===clientName && r.material===material && r._createdAt && r._createdAt > twoMinAgo
+  );
+  if(recentDup){
+    const proceed = confirm('방금 "'+customerName+' / '+clientName+' / '+material+'" 내용으로 이미 등록하셨어요.\n정말 또 등록하시겠어요? (실수로 두 번 누르신 거라면 취소를 눌러주세요)');
+    if(!proceed) return;
+  }
+
+  if(saveBtn) saveBtn.disabled = true; // 저장 처리 중 중복 클릭 방지
+
+  const newRow = {
+    id: uid(), receiptNumber: generateReceiptNumber(), createdBy: currentUser.username,
+    shipMethod,
+    customerName, clientName, phone, address,
+    material, category, requestDate, symptom,
+    model:'', serial910:'', customerSerial:'',
+    shipDate:'', shipInvoice:'', returnDate:'', returnInvoice:'',
+    _createdAt: Date.now()
+  };
+  if(!data.months[currentMonth]) data.months[currentMonth] = [];
+  data.months[currentMonth].push(newRow);
+  logActivity('등록', newRow.receiptNumber+' · '+material+' ('+customerName+', '+shipMethod+')');
+  notifyAdmins('아이디:'+currentUser.username+' 담당자가 선출고 요청을 등록하였습니다');
+
+  saveData();
+  updateInboxBadge();
+  render();
+  closeRequestModal();
+  if(saveBtn) setTimeout(()=>{ saveBtn.disabled = false; }, 1200);
+}
+
+function saveRow(){
+  const lookupMonth = editingMonth || currentMonth;
+  const existingRowCheck = editingId ? (data.months[lookupMonth]||[]).find(r=>r.id===editingId) : null;
+  const perm = getEditPermission(existingRowCheck);
+  if(perm==='none'){ alert('이 항목을 수정할 권한이 없어요.'); return; }
+
+  const material = $('ps_f_material').value.trim();
+  if(!material){ alert('자재명을 입력해주세요'); $('ps_f_material').focus(); return; }
+
+  const shipMethod = $('ps_f_shipMethod').value;
+  if(!shipMethod){ alert('출고 방법을 선택해주세요'); $('ps_f_shipMethod').focus(); return; }
+
+  const rowData = {
+    material,
+    category: $('ps_f_category').value,
+    requestDate: $('ps_f_requestDate').value,
+    shipMethod,
+    customerName: $('ps_f_customerName').value.trim(),
+    phone: $('ps_f_phone').value.trim(),
+    address: $('ps_f_address').value.trim(),
+    model: $('ps_f_model').value.trim(),
+    shipMaterial: $('ps_f_shipMaterial').value.trim(),
+    serial910: $('ps_f_serial910').value.trim(),
+    returnMaterial: $('ps_f_returnMaterial').value.trim(),
+    customerSerial: $('ps_f_customerSerial').value.trim(),
+    symptom: $('ps_f_symptom').value.trim(),
+    shipDate: $('ps_f_shipDate').value,
+    shipInvoice: $('ps_f_shipInvoice').value.trim(),
+    returnDate: $('ps_f_returnDate').value,
+    returnInvoice: $('ps_f_returnInvoice').value.trim(),
+    clientName: $('ps_f_clientName').value.trim(),
+  };
+
+  // 출고일이 있으면 그 날짜의 월(YYYY-MM)로 자동 저장. 출고일이 없으면(자재 대기중) 기존 위치 유지.
+  const derivedMonth = rowData.shipDate ? rowData.shipDate.slice(0,7) : null;
+  const fallbackMonth = editingId ? (editingMonth || currentMonth) : currentMonth;
+  const targetMonth = derivedMonth || fallbackMonth;
+  if(!data.months[targetMonth]) data.months[targetMonth] = [];
+
+  let savedReceipt = '';
+  if(editingId){
+    const sourceMonth = editingMonth || currentMonth;
+    const sourceList = data.months[sourceMonth] || [];
+    const idx = sourceList.findIndex(r=>r.id===editingId);
+    const existing = idx>-1 ? sourceList[idx] : {};
+    if(idx>-1) sourceList.splice(idx,1);
+    const merged = Object.assign({}, existing, rowData, { id: editingId });
+    data.months[targetMonth].push(merged);
+    savedReceipt = merged.receiptNumber || '';
+  }else{
+    data.months[targetMonth].push({ id: uid(), ...rowData });
+  }
+
+  logActivity('수정', (savedReceipt?savedReceipt+' · ':'')+material);
+
+  if(existingRowCheck){
+    const createdBy = existingRowCheck.createdBy;
+    if(shipMethod==='택배출고' && !existingRowCheck.shipInvoice && rowData.shipInvoice){
+      sendNotification(createdBy, '접수번호:'+(savedReceipt||'')+' 택배 출고 완료 되었습니다.');
+    }
+    if(!existingRowCheck.returnDate && rowData.returnDate){
+      sendNotification(createdBy, '접수번호:'+(savedReceipt||'')+' 선출고 반납 처리 완료 되었습니다.');
+    }
+  }
+
+  currentMonth = targetMonth;
+  saveData();
+  updateInboxBadge();
+  render();
+  closeModal();
+}
+
+function deleteRow(){
+  if(!editingId) return;
+  const targetMonth = editingMonth || currentMonth;
+  const row = (data.months[targetMonth]||[]).find(r=>r.id===editingId);
+  if(getEditPermission(row)!=='full'){ alert('삭제 권한이 없어요.'); return; }
+  if(!confirm('이 항목을 삭제할까요?')) return;
+  logActivity('삭제', (row.receiptNumber||'')+' · '+(row.material||''));
+  data.months[targetMonth] = (data.months[targetMonth]||[]).filter(r=>r.id!==editingId);
+  saveData();
+  render();
+  closeModal();
+}
+
+/* ---------- backup ---------- */
+
+function exportBackup(){
+  if(!currentUser || !(currentUser.role==='root' || currentUser.role==='mid')){ alert('백업 다운로드는 관리자/부관리자만 가능합니다.'); return; }
+  const payload = { exportedAt: new Date().toISOString(), data };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.href = url; a.download = 'preship-backup-'+stamp+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importBackup(file){
+  if(!currentUser || !(currentUser.role==='root' || currentUser.role==='mid')){ alert('백업 불러오기는 관리자/부관리자만 가능합니다.'); return; }
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const parsed = JSON.parse(e.target.result);
+      const incoming = parsed.data && parsed.data.months ? parsed.data : parsed;
+      if(!incoming.months) throw new Error('형식 오류');
+      const count = Object.values(incoming.months).reduce((a,r)=>a+r.length,0);
+      if(!confirm('백업 파일에서 '+count+'개 항목을 불러옵니다.\n기존 데이터를 덮어씁니다. 계속할까요?')) return;
+      data = incoming;
+      if(!data.inventory) data.inventory = [];
+      currentMonth = Object.keys(data.months).sort().pop() || defaultMonthKey();
+      currentView = 'month';
+      statsYear = null;
+      saveData();
+      render();
+    }catch(err){ alert('백업 파일을 읽을 수 없습니다. 파일 형식을 확인해주세요.'); }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- events ---------- */
+$('ps_f_model').addEventListener('input', ()=>{ $('ps_f_model2').value = $('ps_f_model').value; });
+$('ps_f_model2').addEventListener('input', ()=>{ $('ps_f_model').value = $('ps_f_model2').value; });
+$('ps_f_shipMethod').addEventListener('change', refreshShipConfirmUI);
+
+$('ps_railAddBtn').addEventListener('click', ()=>openRequestModal());
+$('ps_overviewAddBtn').addEventListener('click', ()=>openRequestModal());
+$('ps_requestCancelBtn').addEventListener('click', closeRequestModal);
+$('ps_requestSaveBtn').addEventListener('click', saveRequestRow);
+$('ps_requestOverlay').addEventListener('click', (e)=>{ if(e.target.id==='ps_requestOverlay') closeRequestModal(); });
+$('ps_cancelBtn').addEventListener('click', closeModal);
+$('ps_saveBtn').addEventListener('click', saveRow);
+$('ps_deleteBtn').addEventListener('click', deleteRow);
+$('ps_overlay').addEventListener('click', (e)=>{ if(e.target.id==='ps_overlay') closeModal(); });
+
+$('ps_invAddBtn').addEventListener('click', ()=>openInvModal(null));
+$('ps_invCancelBtn').addEventListener('click', closeInvModal);
+$('ps_invSaveBtn').addEventListener('click', saveInv);
+$('ps_invDeleteBtn').addEventListener('click', deleteInv);
+$('ps_invOverlay').addEventListener('click', (e)=>{ if(e.target.id==='ps_invOverlay') closeInvModal(); });
+$('ps_trackCloseBtn').addEventListener('click', closeTrackModal);
+
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeModal(); closeInvModal(); closeRequestModal(); closeTrackModal(); $('ps_logPage').classList.remove('show'); $('ps_inboxPage').classList.remove('show'); } });
+
+$('ps_searchInput').addEventListener('input', (e)=>{ searchTerm = e.target.value; renderTable(); });
+$('ps_overviewSearchInput').addEventListener('input', (e)=>{ overviewSearchTerm = e.target.value; overviewPage = 1; renderOverviewTable(); });
+$('ps_overviewStatusFilter').innerHTML = Object.keys(OVERVIEW_STATUS_LABEL).map(k=>'<option value="'+k+'">'+OVERVIEW_STATUS_LABEL[k]+'</option>').join('');
+$('ps_overviewStatusFilter').addEventListener('change', (e)=>{ overviewStatusFilter = e.target.value; overviewPage = 1; renderOverviewTable(); });
+document.querySelectorAll('#ps_rail .slot[data-status]').forEach(el=>{
+  el.addEventListener('click', ()=>{ activeStatus = el.dataset.status; renderRailAndStats(); renderTable(); });
+});
+
+$('ps_inventoryTab').addEventListener('click', ()=>{ currentView='inventory'; render(); });
+$('ps_brandHome').addEventListener('click', ()=>{ currentView='inventory'; render(); });
+$('ps_statsTab').addEventListener('click', ()=>{ currentView='stats'; render(); });
+$('ps_overviewTab').addEventListener('click', ()=>{ currentView='overview'; activeCategory='ALL'; overviewSearchTerm=''; overviewStatusFilter='ALL'; overviewPage=1; $('ps_overviewSearchInput').value=''; $('ps_overviewStatusFilter').value='ALL'; render(); });
+$('ps_statsYear').addEventListener('change', (e)=>{ statsYear = e.target.value; renderStatsView(); });
+$('ps_statsExportBtn').addEventListener('click', exportStatsExcel);
+
+$('ps_exportBtn').addEventListener('click', exportBackup);
+$('ps_importBtn').addEventListener('click', ()=>$('ps_fileInput').click());
+$('ps_fileInput').addEventListener('change', (e)=>{ if(e.target.files[0]) importBackup(e.target.files[0]); e.target.value=''; });
+
+$('ps_logBtn').addEventListener('click', ()=>{ $('ps_logPage').classList.add('show'); renderLogPage(); });
+$('ps_logCloseBtn').addEventListener('click', ()=>{ $('ps_logPage').classList.remove('show'); });
+$('ps_inboxBtn').addEventListener('click', ()=>{ $('ps_inboxPage').classList.add('show'); renderInbox(); });
+$('ps_inboxCloseBtn').addEventListener('click', ()=>{ $('ps_inboxPage').classList.remove('show'); });
+
+/* ---------- 인증 ---------- */
+function findAccount(username){ return data.accounts.find(a=>a.username===username); }
+
+function saveSession(username){ try{ localStorage.setItem(SESSION_KEY, username); }catch(e){} }
+function clearSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
+function loadSession(){ try{ return localStorage.getItem(SESSION_KEY); }catch(e){ return null; } }
+
+function showAuthPage(id){
+  ['ps_loginPage','ps_signupPage','ps_pwPromptPage','ps_idMigratePage','ps_namePromptPage'].forEach(p=>{ $(p).style.display = (p===id) ? 'flex' : 'none'; });
+}
+function hideAuthPages(){
+  ['ps_loginPage','ps_signupPage','ps_pwPromptPage','ps_idMigratePage','ps_namePromptPage'].forEach(p=>{ $(p).style.display = 'none'; });
+}
+function showSignupDonePopup(){ $('ps_signupDoneOverlay').classList.add('show'); }
+function hideSignupDonePopup(){ $('ps_signupDoneOverlay').classList.remove('show'); }
+
+/* ---------- 담당자명: 서버에 저장되지 않고 이 브라우저에만 저장됨 ---------- */
+function displayNameKey(username){ return 'preship-name-'+username; }
+function getLocalDisplayName(username){
+  try{ return localStorage.getItem(displayNameKey(username)); }catch(e){ return null; }
+}
+function setLocalDisplayName(username, name){
+  try{ localStorage.setItem(displayNameKey(username), name); }catch(e){}
+}
+
+let pendingNeedsIdMigration = false;
+
+// 로그인/비밀번호변경 이후, 필요한 다음 단계(아이디 설정 → 담당자명 입력)를 순서대로 진행
+function proceedAfterAuthSteps(){
+  if(pendingNeedsIdMigration){
+    $('ps_mig_id').value=''; $('ps_mig_id2').value=''; $('ps_mig_pw').value=''; $('ps_migError').textContent='';
+    showAuthPage('ps_idMigratePage');
+    return;
+  }
+  if(!getLocalDisplayName(currentUser.username)){
+    $('ps_name_input').value=''; $('ps_nameError').textContent='';
+    showAuthPage('ps_namePromptPage');
+    return;
+  }
+  enterApp();
+}
+
+async function doLogin(){
+  const loginBtn = $('ps_loginBtn');
+  const u = $('ps_login_username').value.trim();
+  const p = $('ps_login_password').value;
+  if(!u || !p){ $('ps_loginError').textContent = '아이디와 비밀번호를 입력해주세요'; return; }
+  if(loginBtn) loginBtn.disabled = true;
+  try{
+    const res = await fetch('/api/login', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ username:u, password:p })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      const msg = j.error || '아이디 또는 비밀번호가 올바르지 않아요';
+      $('ps_loginError').textContent = msg;
+      alert(msg);
+      if(loginBtn) loginBtn.disabled = false;
+      return;
+    }
+    $('ps_loginError').textContent = '';
+    saveToken(j.token);
+    currentUser = { username: u, role: j.role };
+    pendingNeedsIdMigration = !!j.needsIdMigration;
+    saveSession(u);
+    await loadDataAfterLogin();
+    if(j.mustChangePassword){
+      $('ps_pw_new').value=''; $('ps_pw_new2').value=''; $('ps_pwError').textContent='';
+      showAuthPage('ps_pwPromptPage');
+    }else{
+      proceedAfterAuthSteps();
+    }
+  }catch(e){
+    $('ps_loginError').textContent = '서버에 연결할 수 없어요';
+  }
+  if(loginBtn) loginBtn.disabled = false;
+}
+
+async function doSignup(){
+  const u = $('ps_signup_username').value.trim();
+  const p1 = $('ps_signup_password').value;
+  const p2 = $('ps_signup_password2').value;
+  if(!u){ $('ps_signupError').textContent='아이디(이름)를 입력해주세요'; return; }
+  if(!p1 || p1.length<2){ $('ps_signupError').textContent='비밀번호를 입력해주세요'; return; }
+  if(p1!==p2){ $('ps_signupError').textContent='비밀번호가 서로 달라요'; return; }
+  $('ps_signupError').textContent = '';
+  const signupBtn = $('ps_signupBtn');
+  if(signupBtn) signupBtn.disabled = true;
+  try{
+    const res = await fetch('/api/signup', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ username:u, password:p1 })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      $('ps_signupError').textContent = j.error || '가입 신청에 실패했어요';
+      if(signupBtn) signupBtn.disabled = false;
+      return;
+    }
+    $('ps_signup_username').value=''; $('ps_signup_password').value=''; $('ps_signup_password2').value='';
+    showSignupDonePopup();
+  }catch(e){
+    $('ps_signupError').textContent = '서버에 연결할 수 없어요';
+  }
+  if(signupBtn) signupBtn.disabled = false;
+}
+
+async function doLogout(){
+  try{ await authFetch('/api/logout', { method:'POST' }); }catch(e){}
+  clearToken();
+  clearSession();
+  location.reload();
+}
+
+// 평문 비밀번호를 서버에서 해시로 바꿔 받아옴 (평문은 저장되지 않음)
+async function requestPasswordHash(plain){
+  const res = await authFetch('/api/hash-password', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ password: plain })
+  });
+  if(!res.ok) throw new Error('해시 발급 실패');
+  const j = await res.json();
+  return j.hash;
+}
+
+/* ---------- 아이디 마이그레이션 (예전 실명 계정 -> 새 아이디, 최초 1회) ---------- */
+async function doMigrateId(){
+  const newId = $('ps_mig_id').value.trim();
+  const newId2 = $('ps_mig_id2').value.trim();
+  const pw = $('ps_mig_pw').value;
+  if(!newId){ $('ps_migError').textContent = '새 아이디를 입력해주세요'; return; }
+  if(newId.length<2){ $('ps_migError').textContent = '아이디는 2자 이상 입력해주세요'; return; }
+  if(newId !== newId2){ $('ps_migError').textContent = '아이디가 서로 달라요'; return; }
+  if(!pw){ $('ps_migError').textContent = '현재 비밀번호를 입력해주세요'; return; }
+  const btn = $('ps_migConfirmBtn');
+  if(btn) btn.disabled = true;
+  try{
+    const res = await authFetch('/api/migrate-id', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ newUsername:newId, currentPassword:pw })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      $('ps_migError').textContent = j.error || '아이디 설정에 실패했어요';
+      if(btn) btn.disabled = false;
+      return;
+    }
+    saveToken(j.token);
+    currentUser = { username: j.newUsername, role: j.role };
+    saveSession(j.newUsername);
+    // 예전 아이디(=실명)를 그대로 담당자명으로 저장해둬서 다시 물어보지 않음
+    if(j.oldUsername) setLocalDisplayName(j.newUsername, j.oldUsername);
+    pendingNeedsIdMigration = false;
+    alert('앞으로는 "'+j.newUsername+'" 아이디로 로그인하실 수 있어요.');
+    proceedAfterAuthSteps();
+  }catch(e){
+    $('ps_migError').textContent = '서버에 연결할 수 없어요';
+  }
+  if(btn) btn.disabled = false;
+}
+
+/* ---------- 담당자명 설정 (이 브라우저에만 저장, 서버에는 안 남음) ---------- */
+function doSetDisplayName(){
+  const name = $('ps_name_input').value.trim();
+  if(!name){ $('ps_nameError').textContent = '담당자명을 입력해주세요'; return; }
+  $('ps_nameError').textContent = '';
+  setLocalDisplayName(currentUser.username, name);
+  enterApp();
+}
+
+async function changePasswordNow(){
+  const p1 = $('ps_pw_new').value;
+  const p2 = $('ps_pw_new2').value;
+  if(!p1 || p1.length<2){ $('ps_pwError').textContent='새 비밀번호를 입력해주세요'; return; }
+  if(p1!==p2){ $('ps_pwError').textContent='비밀번호가 서로 달라요'; return; }
+  try{
+    const hash = await requestPasswordHash(p1);
+    const acct = findAccount(currentUser.username);
+    if(acct){ acct.password = hash; acct.mustChangePassword = false; saveData(); }
+    proceedAfterAuthSteps();
+  }catch(e){
+    $('ps_pwError').textContent = '비밀번호 변경에 실패했어요, 다시 시도해주세요';
+  }
+}
+
+function enterApp(){
+  hideAuthPages();
+  $('ps_app').style.display = '';
+  applyRoleUI();
+  updateInboxBadge();
+  render();
+}
+
+function applyRoleUI(){
+  const badge = $('ps_userBadge');
+  const roleClass = currentUser.role==='root' ? 'role-root' : currentUser.role==='mid' ? 'role-mid' : currentUser.role==='operator' ? 'role-operator' : 'role-staff';
+  const displayName = getLocalDisplayName(currentUser.username) || currentUser.username;
+  badge.innerHTML = '<b>'+esc(displayName)+'</b> <span class="role-tag '+roleClass+'">'+ROLE_LABEL[currentUser.role]+'</span>';
+  const isStaffRole = currentUser.role==='staff';
+  $('ps_logBtn').style.display = isStaffRole ? 'none' : 'inline-flex';
+  $('ps_statsTab').style.display = isStaffRole ? 'none' : '';
+  if(isStaffRole && currentView==='stats') currentView = 'month';
+  const isAdmin = currentUser.role==='root' || currentUser.role==='mid';
+  $('ps_exportBtn').style.display = isAdmin ? 'inline-flex' : 'none';
+  $('ps_importBtn').style.display = isAdmin ? 'inline-flex' : 'none';
+}
+
+/* ---------- 로그 페이지 (활동 로그 + 계정 관리) ---------- */
+function renderLogPage(){
+  const list = $('ps_logList');
+  if(data.activityLog.length===0){
+    list.innerHTML = '<div class="empty" style="padding:30px 16px;"><div class="disp" style="font-size:13px;">아직 기록된 활동이 없어요</div></div>';
+  }else{
+    list.innerHTML = data.activityLog.map(l=>{
+      const d = new Date(l.ts);
+      const timeStr = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+      return '<div class="log-entry">'+
+        '<div class="log-entry-top"><span class="log-entry-user">'+esc(l.username)+' · '+esc(l.action)+'</span><span class="log-entry-time">'+timeStr+'</span></div>'+
+        '<div class="log-entry-detail">'+esc(l.detail||'')+'</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  const acctPanel = $('ps_acctPanel');
+  if(!canManageAccounts()){
+    acctPanel.innerHTML = '<div class="locked-note">계정 관리는 관리자만 이용할 수 있어요.</div>';
+    return;
+  }
+
+  let html = '';
+  if(data.signupRequests.length>0){
+    html += '<div class="acct-panel"><div class="acct-panel-title">가입 신청 ('+data.signupRequests.length+')</div>';
+    data.signupRequests.slice().sort((a,b)=>a.requestedAt-b.requestedAt).forEach(r=>{
+      const d = new Date(r.requestedAt);
+      const timeStr = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+      html += '<div class="acct-row"><span class="acct-name">'+esc(r.username)+' <span class="log-entry-time">'+timeStr+' 신청</span></span>'+
+        '<span style="display:flex; gap:6px;">'+
+          '<button class="btn-detail" style="color:var(--good); border-color:var(--line);" data-approve-username="'+esc(r.username)+'">수락</button>'+
+          '<button class="btn-detail" style="color:var(--bad); border-color:var(--line);" data-reject-username="'+esc(r.username)+'">거절</button>'+
+        '</span>'+
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div style="display:flex; gap:12px;">'+
+    '<div class="acct-panel" style="flex:1;">'+
+      '<div class="acct-panel-title">계정 생성</div>'+
+      '<div class="field"><input id="ps_newMidUsername" placeholder="아이디 입력 (비밀번호는 자동 1234)" /></div>'+
+      '<div class="field"><select id="ps_newMidRole">'+
+        '<option value="mid">부관리자</option>'+
+        '<option value="operator">운영자</option>'+
+      '</select></div>'+
+      '<button class="btn primary" id="ps_createMidBtn" style="width:100%; justify-content:center;">생성</button>'+
+    '</div>'+
+    '<div class="acct-panel" style="flex:1;">'+
+      '<div class="acct-panel-title">문자 보내기</div>'+
+      '<div class="field"><label>받는 사람</label><select id="ps_msgTarget"></select></div>'+
+      '<div class="field"><textarea id="ps_msgContent" placeholder="보낼 내용을 입력하세요" style="min-height:66px;"></textarea></div>'+
+      '<button class="btn primary" id="ps_sendMsgBtn" style="width:100%; justify-content:center;">보내기</button>'+
+    '</div>'+
+  '</div>';
+
+  html += '<div class="acct-panel"><div class="acct-panel-title">전체 계정 (비밀번호 초기화 → 1234)</div>';
+  data.accounts.slice().sort((a,b)=>{
+    const order = { root:0, mid:1, operator:2, staff:3 };
+    return order[a.role]-order[b.role] || a.username.localeCompare(b.username,'ko');
+  }).forEach(a=>{
+    const roleClass = a.role==='root' ? 'role-root' : a.role==='mid' ? 'role-mid' : a.role==='operator' ? 'role-operator' : 'role-staff';
+    html += '<div class="acct-row"><span class="acct-name">'+esc(a.username)+' <span class="role-tag '+roleClass+'">'+ROLE_LABEL[a.role]+'</span></span>'+
+      (a.role==='root' ? '' :
+        '<span style="display:flex; gap:6px;">'+
+          '<button class="btn-detail" data-username="'+esc(a.username)+'">비밀번호 초기화</button>'+
+          '<button class="btn-detail" style="color:var(--bad); border-color:var(--line);" data-delete-username="'+esc(a.username)+'">삭제</button>'+
+        '</span>'
+      )+
+    '</div>';
+  });
+  html += '</div>';
+  acctPanel.innerHTML = html;
+
+  const msgTargetSel = $('ps_msgTarget');
+  let targetOpts = '<option value="ALL">전체에게</option>';
+  data.accounts.filter(a=>a.role==='staff').sort((a,b)=>a.username.localeCompare(b.username,'ko')).forEach(a=>{
+    targetOpts += '<option value="'+esc(a.username)+'">'+esc(a.username)+'</option>';
+  });
+  msgTargetSel.innerHTML = targetOpts;
+
+  $('ps_sendMsgBtn').addEventListener('click', ()=>{
+    const target = $('ps_msgTarget').value;
+    const content = $('ps_msgContent').value.trim();
+    if(!content){ alert('보낼 내용을 입력해주세요'); return; }
+    if(target==='ALL'){
+      data.accounts.filter(a=>a.role==='staff').forEach(a=> sendNotification(a.username, content));
+    }else{
+      sendNotification(target, content);
+    }
+    saveData();
+    $('ps_msgContent').value = '';
+    alert('전송했어요.');
+  });
+
+  acctPanel.querySelectorAll('.btn-detail[data-approve-username]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const u = btn.dataset.approveUsername;
+      const req = data.signupRequests.find(r=>r.username===u);
+      if(!req) return;
+      if(findAccount(u)){ alert('이미 사용중인 아이디예요. 신청자와 다시 확인해주세요.'); return; }
+      data.accounts.push({ username:req.username, password:req.password, role:'staff', mustChangePassword:false, idMigrated:true });
+      data.signupRequests = data.signupRequests.filter(r=>r.username!==u);
+      logActivity('가입 승인', u+' (담당자)');
+      sendNotification(u, '가입이 승인되었어요. 지금 로그인할 수 있어요.');
+      saveData();
+      renderLogPage();
+    });
+  });
+  acctPanel.querySelectorAll('.btn-detail[data-reject-username]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const u = btn.dataset.rejectUsername;
+      if(!confirm(u+'님의 가입 신청을 거절할까요?')) return;
+      data.signupRequests = data.signupRequests.filter(r=>r.username!==u);
+      logActivity('가입 거절', u);
+      saveData();
+      renderLogPage();
+    });
+  });
+
+  $('ps_createMidBtn').addEventListener('click', async ()=>{
+    const u = $('ps_newMidUsername').value.trim();
+    const role = $('ps_newMidRole').value;
+    if(!u){ alert('아이디를 입력해주세요'); return; }
+    if(findAccount(u)){ alert('이미 사용중인 아이디예요'); return; }
+    const btn = $('ps_createMidBtn'); btn.disabled = true;
+    try{
+      const hash = await requestPasswordHash('1234');
+      data.accounts.push({ username:u, password:hash, role, mustChangePassword:true, idMigrated:true });
+      logActivity('계정 생성', u+' ('+ROLE_LABEL[role]+')');
+      saveData();
+      renderLogPage();
+    }catch(e){
+      alert('계정 생성에 실패했어요, 다시 시도해주세요');
+    }
+    btn.disabled = false;
+  });
+  acctPanel.querySelectorAll('.btn-detail[data-username]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const u = btn.dataset.username;
+      if(!confirm(u+' 계정의 비밀번호를 1234로 초기화할까요? (로그인 잠김 상태였다면 함께 풀립니다)')) return;
+      btn.disabled = true;
+      try{
+        const hash = await requestPasswordHash('1234');
+        const acct = findAccount(u);
+        if(acct){ acct.password = hash; acct.mustChangePassword = true; }
+        logActivity('비밀번호 초기화', u);
+        saveData();
+        try{
+          await authFetch('/api/unlock-login', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ username: u })
+          });
+        }catch(e){ /* 잠금 해제 실패해도 비밀번호 초기화는 이미 반영됨 */ }
+        renderLogPage();
+      }catch(e){
+        alert('초기화에 실패했어요, 다시 시도해주세요');
+        btn.disabled = false;
+      }
+    });
+  });
+  acctPanel.querySelectorAll('.btn-detail[data-delete-username]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const u = btn.dataset.deleteUsername;
+      if(!confirm(u+' 계정을 삭제할까요? 이 계정으로는 더 이상 로그인할 수 없어요.')) return;
+      data.accounts = data.accounts.filter(a=>a.username!==u);
+      logActivity('계정 삭제', u);
+      saveData();
+      renderLogPage();
+    });
+  });
+}
+
+$('ps_loginBtn').addEventListener('click', doLogin);
+$('ps_login_password').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doLogin(); });
+$('ps_goSignupLink').addEventListener('click', ()=>{ $('ps_signupError').textContent=''; showAuthPage('ps_signupPage'); });
+$('ps_goLoginLink').addEventListener('click', ()=>{ $('ps_loginError').textContent=''; showAuthPage('ps_loginPage'); });
+$('ps_signupDoneOkBtn').addEventListener('click', ()=>{ hideSignupDonePopup(); showAuthPage('ps_loginPage'); });
+$('ps_signupDoneOverlay').addEventListener('click', (e)=>{ if(e.target.id==='ps_signupDoneOverlay'){ hideSignupDonePopup(); showAuthPage('ps_loginPage'); } });
+$('ps_signupBtn').addEventListener('click', doSignup);
+$('ps_pwChangeBtn').addEventListener('click', changePasswordNow);
+$('ps_pwSkipBtn').addEventListener('click', proceedAfterAuthSteps);
+$('ps_migConfirmBtn').addEventListener('click', doMigrateId);
+$('ps_mig_pw').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doMigrateId(); });
+$('ps_nameConfirmBtn').addEventListener('click', doSetDisplayName);
+$('ps_name_input').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doSetDisplayName(); });
+$('ps_logoutBtn').addEventListener('click', doLogout);
+
+/* ---------- 비밀번호 직접 변경 (담당자 본인) ---------- */
+function openChangePwModal(){
+  $('ps_cpw_current').value = '';
+  $('ps_cpw_new').value = '';
+  $('ps_cpw_new2').value = '';
+  $('ps_cpwError').textContent = '';
+  $('ps_changePwOverlay').classList.add('show');
+  setTimeout(()=>$('ps_cpw_current').focus(), 50);
+}
+function closeChangePwModal(){
+  $('ps_changePwOverlay').classList.remove('show');
+}
+async function submitChangePw(){
+  const cur = $('ps_cpw_current').value;
+  const p1 = $('ps_cpw_new').value;
+  const p2 = $('ps_cpw_new2').value;
+  if(!cur){ $('ps_cpwError').textContent = '현재 비밀번호를 입력해주세요'; return; }
+  if(!p1 || p1.length<2){ $('ps_cpwError').textContent = '새 비밀번호를 입력해주세요'; return; }
+  if(p1!==p2){ $('ps_cpwError').textContent = '새 비밀번호가 서로 달라요'; return; }
+  if(!confirm('정말로 비밀번호를 변경하시겠습니까?')) return;
+
+  const btn = $('ps_cpwConfirmBtn');
+  btn.disabled = true;
+  try{
+    const res = await authFetch('/api/change-password', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ currentPassword: cur, newPassword: p1 })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      $('ps_cpwError').textContent = j.error || '비밀번호 변경에 실패했어요';
+      btn.disabled = false;
+      return;
+    }
+    closeChangePwModal();
+    alert('비밀번호가 변경되었어요.');
+  }catch(e){
+    $('ps_cpwError').textContent = '서버에 연결할 수 없어요';
+  }
+  btn.disabled = false;
+}
+$('ps_changePwBtn').addEventListener('click', openChangePwModal);
+$('ps_cpwCancelBtn').addEventListener('click', closeChangePwModal);
+$('ps_cpwConfirmBtn').addEventListener('click', submitChangePw);
+$('ps_changePwOverlay').addEventListener('click', (e)=>{ if(e.target.id==='ps_changePwOverlay') closeChangePwModal(); });
+
+/* ---------- 서버에서 최신 데이터 다시 가져오기 (새로고침) ---------- */
+let _refreshing = false;
+async function refreshFromServer(showFeedback){
+  if(_refreshing) return;
+  _refreshing = true;
+  const dot = $('ps_saveDot'), txt = $('ps_saveText');
+  if(showFeedback && txt){ txt.textContent = '새로고침 중'; if(dot) dot.classList.add('saving'); }
+  try{
+    const res = await authFetch('/api/data');
+    if(res.ok){
+      const raw = await res.json();
+      normalizeData(raw);
+      if(currentUser){
+        updateInboxBadge();
+        render();
+      }
+    }
+    if(showFeedback && txt){ txt.textContent = '저장됨'; if(dot) dot.classList.remove('saving'); }
+  }catch(e){
+    if(showFeedback && txt){ txt.textContent = '새로고침 실패'; if(dot) dot.classList.remove('saving'); }
+  }finally{
+    _refreshing = false;
+  }
+}
+const refreshBtnEl = $('ps_refreshBtn');
+if(refreshBtnEl) refreshBtnEl.addEventListener('click', ()=> refreshFromServer(true));
+
+// 로그인된 상태에서 20초마다 자동으로 조용히 최신 데이터 확인
+setInterval(()=>{
+  if(currentUser && document.visibilityState === 'visible'){
+    refreshFromServer(false);
+  }
+}, 20000);
+// 탭을 다시 보게 됐을 때도 한 번 갱신
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && currentUser){
+    refreshFromServer(false);
+  }
+});
+
+/* ---------- 시작 ---------- */
+(async function start(){
+  const sessionUser = loadSession();
+  if(authToken && sessionUser){
+    try{
+      const res = await authFetch('/api/data');
+      if(res.ok){
+        const raw = await res.json();
+        normalizeData(raw);
+        const acct = findAccount(sessionUser);
+        currentUser = { username: sessionUser, role: acct ? acct.role : 'staff' };
+        enterApp();
+        return;
+      }
+    }catch(e){ /* 아래에서 로그인 화면으로 */ }
+  }
+  clearToken();
+  clearSession();
+  showAuthPage('ps_loginPage');
+})();
+</script>
+</body>
+</html>
