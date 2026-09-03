@@ -56,6 +56,8 @@
   .tab{ font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; padding:12px 12px; background:transparent; border:none; color:var(--text-faint); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; flex-shrink:0; }
   .tab:hover{ color:var(--text-dim); }
   .tab.active{ color:var(--text); border-bottom:2px solid var(--copper); }
+  .tab-del{ display:inline-block; margin-left:5px; color:var(--text-faint); font-weight:400; padding:0 2px; border-radius:3px; }
+  .tab-del:hover{ color:#fff; background:var(--bad); }
   .tab-add{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; padding:10px 12px; background:transparent; border:none; color:var(--text-faint); cursor:pointer; margin-left:2px; border:1px dashed transparent; border-radius:var(--radius); flex-shrink:0; }
   .tab-add:hover{ color:var(--copper); border-color:var(--line); }
  
@@ -1038,8 +1040,16 @@ function renderTabbar(){
     Object.keys(data.months).filter(k=>k.startsWith(activeYear+'-')).sort().reverse().forEach(key=>{
       const tab = document.createElement('button');
       tab.className = 'tab' + (key===currentMonth ? ' active' : '');
-      tab.textContent = monthLabel(key)+'월';
-      tab.addEventListener('click', ()=>{ currentMonth=key; activeStatus='ALL'; searchTerm=''; $('ps_searchInput').value=''; render(); });
+      const canDelete = currentUser.role!=='staff';
+      tab.innerHTML = esc(monthLabel(key)+'월') + (canDelete ? ' <span class="tab-del" title="이 달 삭제">×</span>' : '');
+      tab.addEventListener('click', (e)=>{
+        if(e.target.classList.contains('tab-del')){
+          e.stopPropagation();
+          deleteMonth(key);
+          return;
+        }
+        currentMonth=key; activeStatus='ALL'; searchTerm=''; $('ps_searchInput').value=''; render();
+      });
       bar.appendChild(tab);
     });
     if(currentUser.role!=='staff'){
@@ -1053,6 +1063,27 @@ function renderTabbar(){
   }else{
     monthRow.style.display = 'none';
   }
+}
+ 
+function deleteMonth(key){
+  if(currentUser.role==='staff'){ alert('월 삭제는 관리자/부관리자/운영자만 가능해요.'); return; }
+  const rows = data.months[key] || [];
+  const count = rows.length;
+  if(count===0){
+    if(!confirm(monthLabel(key)+'월 탭을 삭제할까요? (비어있는 달이에요)')) return;
+  }else{
+    if(!confirm(monthLabel(key)+'월에는 데이터가 '+count+'건 있어요.\n정말 삭제하시겠어요? 안의 데이터가 전부 함께 사라지고 복구할 수 없어요.')) return;
+    if(!confirm('정말 확실한가요? "'+monthLabel(key)+'월" 데이터 '+count+'건이 영구적으로 삭제됩니다.')) return;
+  }
+  delete data.months[key];
+  if(currentMonth===key){
+    const remaining = Object.keys(data.months).sort();
+    currentMonth = remaining.length ? remaining[remaining.length-1] : defaultMonthKey();
+    if(!data.months[currentMonth]) data.months[currentMonth] = [];
+  }
+  logActivity('월 삭제', key+' 삭제 (데이터 '+count+'건)');
+  saveData();
+  render();
 }
  
 function addMonth(){
