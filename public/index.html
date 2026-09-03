@@ -44,6 +44,7 @@
   .btn.home:hover{ border-color:var(--steel); }
  
   .tabbar{ display:flex; align-items:center; padding:0 22px; border-bottom:1px solid var(--line); background:#FBFBFC; }
+  .month-tabbar-row{ display:flex; align-items:center; padding:0 22px; border-bottom:1px solid var(--line); background:#fff; }
   .tab-pinned{ font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:700; padding:12px 12px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--copper); cursor:pointer; white-space:nowrap; flex-shrink:0; }
   .tab-pinned:hover{ color:var(--copper-bright); }
   .tab-pinned.active{ border-bottom:2px solid var(--copper); }
@@ -57,8 +58,6 @@
   .tab.active{ color:var(--text); border-bottom:2px solid var(--copper); }
   .tab-add{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; padding:10px 12px; background:transparent; border:none; color:var(--text-faint); cursor:pointer; margin-left:2px; border:1px dashed transparent; border-radius:var(--radius); flex-shrink:0; }
   .tab-add:hover{ color:var(--copper); border-color:var(--line); }
-  .tab-merge{ font-family:'Inter',sans-serif; font-size:12px; font-weight:600; padding:8px 12px; background:transparent; border:1px dashed var(--line-2); color:var(--text-faint); cursor:pointer; margin-left:6px; border-radius:var(--radius); flex-shrink:0; white-space:nowrap; }
-  .tab-merge:hover{ color:var(--steel); border-color:var(--steel); background:rgba(62,110,150,0.06); }
  
   .stats{ display:grid; grid-template-columns:2fr 1fr 1fr; gap:1px; background:var(--line); border-bottom:1px solid var(--line); }
   .stat{ background:var(--bg); padding:16px 18px; }
@@ -198,6 +197,9 @@
   .inbox-badge{ display:inline-block; background:var(--bad); color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:99px; margin-left:6px; vertical-align:middle; }
   .log-entry-top{ display:flex; justify-content:space-between; gap:8px; }
   .log-entry-user{ font-weight:700; color:var(--text); }
+  .log-name-tag{ font-weight:500; color:var(--text-faint); font-size:12px; margin-left:4px; }
+  .log-name-unknown{ cursor:pointer; color:var(--steel); border-bottom:1px dashed var(--steel); }
+  .log-name-unknown:hover{ color:var(--copper); border-color:var(--copper); }
   .log-entry-time{ color:var(--text-faint); font-family:'JetBrains Mono',monospace; font-size:11px; }
   .log-entry-detail{ color:var(--text-dim); margin-top:3px; }
   .acct-panel{ border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(20,22,27,0.04); }
@@ -486,6 +488,10 @@
     <button class="tab-pinned" id="ps_inventoryTab">MSI 선출고 재고</button>
     <button class="tab-pinned pinned-last" id="ps_overviewTab">MSI 선출고 현황</button>
     <button class="tab-pinned pinned-last muted" id="ps_statsTab">MIK 선출고 물동량</button>
+    <div class="tabbar-scroll" id="ps_yearTabbar"></div>
+  </div>
+ 
+  <div class="month-tabbar-row" id="ps_monthTabbarRow" style="display:none;">
     <div class="tabbar-scroll" id="ps_tabbar"></div>
   </div>
  
@@ -901,6 +907,25 @@ async function authFetch(url, opts){
   return res;
 }
  
+// 예전에 "합치기"로 연도 단위(YYYY)로 합쳐졌던 데이터가 있으면, 각 항목의 접수일/출고일 기준으로 다시 월별(YYYY-MM)로 되돌림
+function splitMergedYearsIfAny(){
+  let changed = false;
+  Object.keys(data.months).forEach(key=>{
+    if(/^\d{4}$/.test(key)){
+      const rows = data.months[key] || [];
+      delete data.months[key];
+      rows.forEach(r=>{
+        const src = r.requestDate || r.shipDate || (key+'-01-01');
+        const mk = /^\d{4}-\d{2}/.test(src) ? src.slice(0,7) : (key+'-01');
+        if(!data.months[mk]) data.months[mk] = [];
+        data.months[mk].push(r);
+      });
+      changed = true;
+    }
+  });
+  return changed;
+}
+ 
 function normalizeData(raw){
   data = raw && Object.keys(raw).length ? raw : data;
   if(!data.months) data.months = {};
@@ -909,6 +934,7 @@ function normalizeData(raw){
   if(!data.activityLog) data.activityLog = [];
   if(!data.notifications) data.notifications = [];
   if(!data.signupRequests) data.signupRequests = [];
+  if(splitMergedYearsIfAny()) saveData();
   const keys = Object.keys(data.months);
   if(keys.length===0) data.months[defaultMonthKey()] = [];
   const freshKeys = Object.keys(data.months);
@@ -984,30 +1010,48 @@ function renderTabbar(){
   $('ps_statsTab').classList.toggle('active', currentView==='stats');
   $('ps_overviewTab').classList.toggle('active', currentView==='overview');
  
+  // 연도 탭 (1단): 연도를 누르면 그 연도의 최신 달로 이동
+  const yearBar = $('ps_yearTabbar');
+  yearBar.innerHTML = '';
+  const years = Array.from(new Set(Object.keys(data.months).map(k=>k.split('-')[0]))).sort().reverse();
+  const activeYear = currentMonth ? currentMonth.split('-')[0] : null;
+  years.forEach(year=>{
+    const tab = document.createElement('button');
+    tab.className = 'tab' + (currentView==='month' && year===activeYear ? ' active' : '');
+    tab.textContent = year+'.';
+    tab.addEventListener('click', ()=>{
+      const monthsInYear = Object.keys(data.months).filter(k=>k.startsWith(year+'-')).sort();
+      currentMonth = monthsInYear.length ? monthsInYear[monthsInYear.length-1] : defaultMonthKey();
+      currentView = 'month';
+      activeStatus = 'ALL'; searchTerm=''; $('ps_searchInput').value='';
+      render();
+    });
+    yearBar.appendChild(tab);
+  });
+ 
+  // 월 탭 (2단): 월별 화면일 때만 나타나고, 선택된 연도의 달만 보여줌
+  const monthRow = $('ps_monthTabbarRow');
   const bar = $('ps_tabbar');
   bar.innerHTML = '';
-  Object.keys(data.months).sort().reverse().forEach(key=>{
-    const isYearMerged = /^\d{4}$/.test(key);
-    const tab = document.createElement('button');
-    tab.className = 'tab' + (currentView==='month' && key===currentMonth ? ' active' : '');
-    tab.textContent = isYearMerged ? (key+'년') : (monthLabel(key)+'월');
-    tab.addEventListener('click', ()=>{ currentView='month'; currentMonth=key; activeStatus='ALL'; searchTerm=''; $('ps_searchInput').value=''; render(); });
-    bar.appendChild(tab);
-  });
-  if(currentUser.role!=='staff'){
-    const addTab = document.createElement('button');
-    addTab.className = 'tab-add';
-    addTab.textContent = '+';
-    addTab.title = '월 추가';
-    addTab.addEventListener('click', addMonth);
-    bar.appendChild(addTab);
- 
-    const mergeTab = document.createElement('button');
-    mergeTab.className = 'tab-merge';
-    mergeTab.textContent = '합치기';
-    mergeTab.title = '지난 연도 월별 데이터를 하나로 합치기';
-    mergeTab.addEventListener('click', handleMergeYearClick);
-    bar.appendChild(mergeTab);
+  if(currentView==='month' && activeYear){
+    monthRow.style.display = '';
+    Object.keys(data.months).filter(k=>k.startsWith(activeYear+'-')).sort().reverse().forEach(key=>{
+      const tab = document.createElement('button');
+      tab.className = 'tab' + (key===currentMonth ? ' active' : '');
+      tab.textContent = monthLabel(key)+'월';
+      tab.addEventListener('click', ()=>{ currentMonth=key; activeStatus='ALL'; searchTerm=''; $('ps_searchInput').value=''; render(); });
+      bar.appendChild(tab);
+    });
+    if(currentUser.role!=='staff'){
+      const addTab = document.createElement('button');
+      addTab.className = 'tab-add';
+      addTab.textContent = '+';
+      addTab.title = '월 추가';
+      addTab.addEventListener('click', addMonth);
+      bar.appendChild(addTab);
+    }
+  }else{
+    monthRow.style.display = 'none';
   }
 }
  
@@ -1023,54 +1067,6 @@ function addMonth(){
   currentMonth = key;
   saveData();
   render();
-}
- 
-/* ---------- 지난 연도 월별 데이터 하나로 합치기 ---------- */
-function getMergeCandidateYears(){
-  const thisYear = new Date().getFullYear();
-  const years = new Set();
-  Object.keys(data.months).forEach(k=>{
-    const m = k.match(/^(\d{4})-\d{2}$/);
-    if(m && parseInt(m[1],10) < thisYear) years.add(m[1]);
-  });
-  return Array.from(years).sort();
-}
- 
-function mergeYearData(year){
-  const keys = Object.keys(data.months).filter(k=> new RegExp('^'+year+'-\\d{2}$').test(k));
-  if(keys.length===0) return 0;
-  let merged = [];
-  keys.forEach(k=>{ merged = merged.concat(data.months[k]||[]); });
-  merged.sort((a,b)=>{
-    const ad = a.shipDate || '', bd = b.shipDate || '';
-    if(ad && bd) return bd.localeCompare(ad); // 둘 다 출고됨 - 최신 출고일이 위로
-    if(ad && !bd) return -1; // 출고된 것이 아직 안 된 것보다 위로
-    if(!ad && bd) return 1;
-    return (b.requestDate||'').localeCompare(a.requestDate||''); // 둘 다 미출고면 접수일 기준
-  });
-  keys.forEach(k=> delete data.months[k]);
-  const wasCurrent = keys.includes(currentMonth);
-  data.months[year] = (data.months[year]||[]).concat(merged);
-  if(wasCurrent) currentMonth = year;
-  return merged.length;
-}
- 
-function handleMergeYearClick(){
-  if(currentUser.role==='staff'){ alert('연도 데이터 합치기는 관리자/부관리자/운영자만 가능해요.'); return; }
-  const candidates = getMergeCandidateYears();
-  if(candidates.length===0){ alert('합칠 수 있는 지난 연도의 월별 데이터가 없어요. (올해 데이터는 합칠 수 없어요)'); return; }
-  const year = candidates[0]; // 가장 오래된 연도부터 순서대로
-  const count = Object.keys(data.months).filter(k=> new RegExp('^'+year+'-\\d{2}$').test(k)).reduce((sum,k)=>sum+(data.months[k]||[]).length,0);
-  const proceed = confirm(
-    year+'년 월별 데이터(총 '+count+'건)를 하나로 합칠까요?\n'+
-    '합친 뒤에는 최신 출고일 순으로 정렬되어 표시되고, 다시 월별로 나눌 수 없어요.'
-  );
-  if(!proceed) return;
-  const mergedCount = mergeYearData(year);
-  logActivity('연도 데이터 합치기', year+'년 월별 데이터 '+mergedCount+'건을 하나로 병합');
-  saveData();
-  render();
-  alert(year+'년 데이터 '+mergedCount+'건을 하나로 합쳤어요.');
 }
  
 /* ---------- month view: rail + stats ---------- */
@@ -2446,11 +2442,25 @@ function renderLogPage(){
     list.innerHTML = data.activityLog.map(l=>{
       const d = new Date(l.ts);
       const timeStr = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+      const known = getLocalDisplayName(l.username);
+      const nameTag = known
+        ? '<span class="log-name-tag">('+esc(known)+')</span>'
+        : '<span class="log-name-tag log-name-unknown" data-username="'+esc(l.username)+'" title="이 아이디에 이름을 매칭해두면(내 컴퓨터에만 저장) 다음부터 여기 표시돼요">＋이름 매칭</span>';
       return '<div class="log-entry">'+
-        '<div class="log-entry-top"><span class="log-entry-user">'+esc(l.username)+' · '+esc(l.action)+'</span><span class="log-entry-time">'+timeStr+'</span></div>'+
+        '<div class="log-entry-top"><span class="log-entry-user">'+esc(l.username)+nameTag+' · '+esc(l.action)+'</span><span class="log-entry-time">'+timeStr+'</span></div>'+
         '<div class="log-entry-detail">'+esc(l.detail||'')+'</div>'+
       '</div>';
     }).join('');
+    list.querySelectorAll('.log-name-unknown').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const u = el.dataset.username;
+        const name = prompt(u+' 아이디의 담당자명을 입력하세요 (내 컴퓨터에만 저장되고 서버에는 남지 않아요)');
+        if(name && name.trim()){
+          setLocalDisplayName(u, name.trim());
+          renderLogPage();
+        }
+      });
+    });
   }
  
   const acctPanel = $('ps_acctPanel');
@@ -2736,3 +2746,4 @@ document.addEventListener('visibilitychange', ()=>{
 </script>
 </body>
 </html>
+ 
