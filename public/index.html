@@ -200,8 +200,10 @@
   .log-entry-top{ display:flex; justify-content:space-between; gap:8px; }
   .log-entry-user{ font-weight:700; color:var(--text); }
   .log-name-tag{ font-weight:500; color:var(--text-faint); font-size:12px; margin-left:4px; }
-  .log-name-unknown{ cursor:pointer; color:var(--steel); border-bottom:1px dashed var(--steel); }
-  .log-name-unknown:hover{ color:var(--copper); border-color:var(--copper); }
+  .acct-name-local{ cursor:pointer; font-weight:500; color:var(--text-faint); font-size:12px; margin-left:6px; border-bottom:1px dashed var(--text-faint); }
+  .acct-name-local:hover{ color:var(--copper); border-color:var(--copper); }
+  .acct-name-empty{ color:var(--steel); border-color:var(--steel); }
+  .acct-name-empty:hover{ color:var(--copper); border-color:var(--copper); }
   .log-entry-time{ color:var(--text-faint); font-family:'JetBrains Mono',monospace; font-size:11px; }
   .log-entry-detail{ color:var(--text-dim); margin-top:3px; }
   .acct-panel{ border:1px solid var(--line); border-radius:6px; padding:16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(20,22,27,0.04); }
@@ -2474,24 +2476,12 @@ function renderLogPage(){
       const d = new Date(l.ts);
       const timeStr = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
       const known = getLocalDisplayName(l.username);
-      const nameTag = known
-        ? '<span class="log-name-tag">('+esc(known)+')</span>'
-        : '<span class="log-name-tag log-name-unknown" data-username="'+esc(l.username)+'" title="이 아이디에 이름을 매칭해두면(내 컴퓨터에만 저장) 다음부터 여기 표시돼요">＋이름 매칭</span>';
+      const nameTag = known ? '<span class="log-name-tag">('+esc(known)+')</span>' : '';
       return '<div class="log-entry">'+
         '<div class="log-entry-top"><span class="log-entry-user">'+esc(l.username)+nameTag+' · '+esc(l.action)+'</span><span class="log-entry-time">'+timeStr+'</span></div>'+
         '<div class="log-entry-detail">'+esc(l.detail||'')+'</div>'+
       '</div>';
     }).join('');
-    list.querySelectorAll('.log-name-unknown').forEach(el=>{
-      el.addEventListener('click', ()=>{
-        const u = el.dataset.username;
-        const name = prompt(u+' 아이디의 담당자명을 입력하세요 (내 컴퓨터에만 저장되고 서버에는 남지 않아요)');
-        if(name && name.trim()){
-          setLocalDisplayName(u, name.trim());
-          renderLogPage();
-        }
-      });
-    });
   }
  
   const acctPanel = $('ps_acctPanel');
@@ -2540,7 +2530,11 @@ function renderLogPage(){
     return order[a.role]-order[b.role] || a.username.localeCompare(b.username,'ko');
   }).forEach(a=>{
     const roleClass = a.role==='root' ? 'role-root' : a.role==='mid' ? 'role-mid' : a.role==='operator' ? 'role-operator' : 'role-staff';
-    html += '<div class="acct-row"><span class="acct-name">'+esc(a.username)+' <span class="role-tag '+roleClass+'">'+ROLE_LABEL[a.role]+'</span></span>'+
+    const localName = getLocalDisplayName(a.username);
+    const nameTag = localName
+      ? '<span class="acct-name-local" data-username="'+esc(a.username)+'" title="클릭해서 수정 (내 컴퓨터에만 저장)">('+esc(localName)+')</span>'
+      : '<span class="acct-name-local acct-name-empty" data-username="'+esc(a.username)+'" title="클릭해서 이름 추가 (내 컴퓨터에만 저장, 서버에는 안 남음)">＋이름</span>';
+    html += '<div class="acct-row"><span class="acct-name">'+esc(a.username)+' <span class="role-tag '+roleClass+'">'+ROLE_LABEL[a.role]+'</span>'+nameTag+'</span>'+
       (a.role==='root' ? '' :
         '<span style="display:flex; gap:6px;">'+
           '<button class="btn-detail" data-username="'+esc(a.username)+'">비밀번호 초기화</button>'+
@@ -2551,6 +2545,17 @@ function renderLogPage(){
   });
   html += '</div>';
   acctPanel.innerHTML = html;
+  acctPanel.querySelectorAll('.acct-name-local').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const u = el.dataset.username;
+      const current = getLocalDisplayName(u) || '';
+      const name = prompt(u+' 아이디의 담당자명을 입력하세요 (내 컴퓨터에만 저장되고 서버에는 남지 않아요)', current);
+      if(name===null) return;
+      const trimmed = name.trim();
+      if(trimmed){ setLocalDisplayName(u, trimmed); }
+      renderLogPage();
+    });
+  });
  
   const msgTargetSel = $('ps_msgTarget');
   let targetOpts = '<option value="ALL">전체에게</option>';
