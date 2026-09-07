@@ -381,11 +381,26 @@
  
 <!-- 비밀번호 직접 변경 (담당자 본인) -->
 <div class="overlay" id="ps_changePwOverlay">
-  <div class="modal" style="width:360px;">
-    <h3 class="disp">비밀번호 변경</h3>
-    <div class="field"><label>현재 비밀번호</label><input id="ps_cpw_current" type="password" placeholder="현재 비밀번호" /></div>
-    <div class="field"><label>새 비밀번호</label><input id="ps_cpw_new" type="password" placeholder="새 비밀번호" /></div>
-    <div class="field"><label>새 비밀번호 확인</label><input id="ps_cpw_new2" type="password" placeholder="새 비밀번호 확인" /></div>
+  <div class="modal" style="width:380px;">
+    <h3 class="disp">아이디/비밀번호 변경</h3>
+    <div style="display:flex; gap:8px; margin:10px 0 16px;">
+      <button class="btn ghost" id="ps_cpwTabId" style="flex:1; justify-content:center;">아이디 변경</button>
+      <button class="btn ghost" id="ps_cpwTabPw" style="flex:1; justify-content:center;">비밀번호 변경</button>
+    </div>
+ 
+    <div id="ps_cpwIdFields">
+      <div class="field"><label>기존 아이디</label><input id="ps_cpw_oldId" type="text" disabled /></div>
+      <div class="field"><label>새 아이디</label><input id="ps_cpw_newId" placeholder="새 아이디" /></div>
+      <div class="field"><label>새 아이디 확인</label><input id="ps_cpw_newId2" placeholder="새 아이디 확인" /></div>
+      <div class="field"><label>비밀번호</label><input id="ps_cpw_idPw" type="password" placeholder="본인 확인용 현재 비밀번호" /></div>
+    </div>
+ 
+    <div id="ps_cpwPwFields" style="display:none;">
+      <div class="field"><label>현재 비밀번호</label><input id="ps_cpw_current" type="password" placeholder="현재 비밀번호" /></div>
+      <div class="field"><label>새 비밀번호</label><input id="ps_cpw_new" type="password" placeholder="새 비밀번호" /></div>
+      <div class="field"><label>새 비밀번호 확인</label><input id="ps_cpw_new2" type="password" placeholder="새 비밀번호 확인" /></div>
+    </div>
+ 
     <div class="auth-error" id="ps_cpwError"></div>
     <div style="display:flex; gap:8px; margin-top:10px;">
       <button class="btn ghost" id="ps_cpwCancelBtn" style="flex:1; justify-content:center;">취소</button>
@@ -453,7 +468,7 @@
       <button class="btn ghost" id="ps_exportBtn">⬇ 백업 다운로드</button>
       <button class="btn ghost" id="ps_importBtn">⬆ 백업 불러오기</button>
       <input type="file" id="ps_fileInput" accept="application/json" />
-      <button class="btn ghost" id="ps_changePwBtn">🔑 비밀번호 변경</button>
+      <button class="btn ghost" id="ps_changePwBtn">🔑 ID/PW 변경</button>
       <button class="btn ghost" id="ps_logoutBtn">로그아웃</button>
       <button class="btn home" id="ps_logBtn">🗂 로그</button>
     </div>
@@ -2672,18 +2687,74 @@ $('ps_nameConfirmBtn').addEventListener('click', doSetDisplayName);
 $('ps_name_input').addEventListener('keydown', (e)=>{ if(e.key==='Enter') doSetDisplayName(); });
 $('ps_logoutBtn').addEventListener('click', doLogout);
  
-/* ---------- 비밀번호 직접 변경 (담당자 본인) ---------- */
+/* ---------- 아이디/비밀번호 직접 변경 (담당자 본인) ---------- */
+let cpwTab = 'id'; // 'id' | 'pw'
+ 
+function setCpwTab(tab){
+  cpwTab = tab;
+  $('ps_cpwTabId').className = 'btn ' + (tab==='id' ? 'primary' : 'ghost');
+  $('ps_cpwTabPw').className = 'btn ' + (tab==='pw' ? 'primary' : 'ghost');
+  $('ps_cpwIdFields').style.display = tab==='id' ? '' : 'none';
+  $('ps_cpwPwFields').style.display = tab==='pw' ? '' : 'none';
+  $('ps_cpwError').textContent = '';
+}
+ 
 function openChangePwModal(){
+  $('ps_cpw_oldId').value = currentUser.username;
+  $('ps_cpw_newId').value = '';
+  $('ps_cpw_newId2').value = '';
+  $('ps_cpw_idPw').value = '';
   $('ps_cpw_current').value = '';
   $('ps_cpw_new').value = '';
   $('ps_cpw_new2').value = '';
   $('ps_cpwError').textContent = '';
+  setCpwTab('id');
   $('ps_changePwOverlay').classList.add('show');
-  setTimeout(()=>$('ps_cpw_current').focus(), 50);
+  setTimeout(()=>$('ps_cpw_newId').focus(), 50);
 }
 function closeChangePwModal(){
   $('ps_changePwOverlay').classList.remove('show');
 }
+ 
+async function submitChangeId(){
+  const newId = $('ps_cpw_newId').value.trim();
+  const newId2 = $('ps_cpw_newId2').value.trim();
+  const pw = $('ps_cpw_idPw').value;
+  if(!newId){ $('ps_cpwError').textContent = '새 아이디를 입력해주세요'; return; }
+  if(newId.length<2){ $('ps_cpwError').textContent = '아이디는 2자 이상 입력해주세요'; return; }
+  if(newId !== newId2){ $('ps_cpwError').textContent = '새 아이디가 서로 달라요'; return; }
+  if(!pw){ $('ps_cpwError').textContent = '비밀번호를 입력해주세요'; return; }
+  if(!confirm('아이디를 "'+newId+'"(으)로 변경하시겠습니까? 다음부터 이 아이디로 로그인하셔야 해요.')) return;
+ 
+  const btn = $('ps_cpwConfirmBtn');
+  btn.disabled = true;
+  try{
+    const res = await authFetch('/api/migrate-id', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ newUsername:newId, currentPassword:pw })
+    });
+    const j = await res.json().catch(()=>({}));
+    if(!res.ok || !j.ok){
+      $('ps_cpwError').textContent = j.error || '아이디 변경에 실패했어요';
+      btn.disabled = false;
+      return;
+    }
+    saveToken(j.token);
+    currentUser = { username: j.newUsername, role: j.role };
+    saveSession(j.newUsername);
+    // 기존에 저장해둔 담당자명이 있으면 새 아이디로 그대로 이어서 사용
+    const prevName = getLocalDisplayName(j.oldUsername);
+    if(prevName) setLocalDisplayName(j.newUsername, prevName);
+    closeChangePwModal();
+    applyRoleUI();
+    alert('아이디가 "'+j.newUsername+'"(으)로 변경되었어요. 다음부터 이 아이디로 로그인해주세요.');
+  }catch(e){
+    $('ps_cpwError').textContent = '서버에 연결할 수 없어요';
+  }
+  btn.disabled = false;
+}
+ 
 async function submitChangePw(){
   const cur = $('ps_cpw_current').value;
   const p1 = $('ps_cpw_new').value;
@@ -2714,9 +2785,17 @@ async function submitChangePw(){
   }
   btn.disabled = false;
 }
+ 
+function submitChangePwOrId(){
+  if(cpwTab==='id') submitChangeId();
+  else submitChangePw();
+}
+ 
 $('ps_changePwBtn').addEventListener('click', openChangePwModal);
+$('ps_cpwTabId').addEventListener('click', ()=>setCpwTab('id'));
+$('ps_cpwTabPw').addEventListener('click', ()=>setCpwTab('pw'));
 $('ps_cpwCancelBtn').addEventListener('click', closeChangePwModal);
-$('ps_cpwConfirmBtn').addEventListener('click', submitChangePw);
+$('ps_cpwConfirmBtn').addEventListener('click', submitChangePwOrId);
 $('ps_changePwOverlay').addEventListener('click', (e)=>{ if(e.target.id==='ps_changePwOverlay') closeChangePwModal(); });
  
 /* ---------- 서버에서 최신 데이터 다시 가져오기 (새로고침) ---------- */
