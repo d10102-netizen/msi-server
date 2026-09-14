@@ -13,5 +13,8 @@
     "express": "^4.19.2",
     "geoip-lite": "^2.0.3",
     "mongodb": "^6.9.0"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
   }
 }
